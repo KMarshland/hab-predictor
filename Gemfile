@@ -32,12 +32,16 @@ gem 'redis', '~> 3.0'
 # Use ActiveModel has_secure_password
 # gem 'bcrypt', '~> 3.1.7'
 
+gem 'http'
+
 # write extensions in rust
 gem 'helix-rails', '~> 0.5.0'
 
 # worker management
 gem 'foreman'
 gem 'sidekiq'
+
+gem 'colorize'
 
 # Use Capistrano for deployment
 # gem 'capistrano-rails', group: :development

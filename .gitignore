@@ -26,6 +26,7 @@ db/*.sqlite3
 !.elasticbeanstalk/*.global.yml
 
 
+lib/data/*
 
 # Ignore bundler config.
 /.bundle
@@ -38,3 +39,5 @@ db/*.sqlite3
 
 # Ignore Byebug command history file.
 .byebug_history
+
+datasets/*
