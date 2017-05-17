@@ -1,5 +1,3 @@
-use chrono::prelude::*;
-
 use predictor::point::Point;
 
 pub enum PredictionProfile {

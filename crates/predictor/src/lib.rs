@@ -1,6 +1,12 @@
 #[macro_use]
 extern crate helix;
+
+#[macro_use]
+extern crate lazy_static;
+
 extern crate chrono;
+
+
 pub mod predictor;
 
 ruby! {
