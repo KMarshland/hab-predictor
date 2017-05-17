@@ -9,17 +9,17 @@ pub enum PredictionProfile {
  * All parameters that might be passed in to the prediction
  */
 pub struct PredictorParams {
-    launch: Point,
+    pub launch: Point,
 
-    profile: PredictionProfile,
+    pub profile: PredictionProfile,
 
     // standard profile
-    burst_altitude: i32, // meters
-    ascent_rate: i32, // meters per second
-    descent_rate: i32, // meters per second
+    pub burst_altitude: f32, // meters
+    pub ascent_rate: f32, // meters per second
+    pub descent_rate: f32, // meters per second
 
     // valbal
-    duration: f32, // minutes
+    pub duration: f32, // minutes
 }
 
 /*
@@ -30,9 +30,9 @@ struct StandardPredictorParams {
     launch: Point,
 
     // standard profile
-    burst_altitude: i32, // meters
-    ascent_rate: i32, // meters per second
-    descent_rate: i32, // meters per second
+    burst_altitude: f32, // meters
+    ascent_rate: f32, // meters per second
+    descent_rate: f32, // meters per second
 }
 
 /*

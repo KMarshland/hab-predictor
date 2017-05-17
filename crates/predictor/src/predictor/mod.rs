@@ -1,7 +1,7 @@
-mod grib_reader;
-mod predictor;
-mod point;
-mod dataset_reader;
+pub mod grib_reader;
+pub mod predictor;
+pub mod point;
+pub mod dataset_reader;
 
 pub use predictor::grib_reader::*;
 pub use predictor::predictor::*;

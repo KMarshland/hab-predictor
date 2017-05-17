@@ -4,10 +4,10 @@ use chrono::prelude::*;
  * A position time tuple
  */
 pub struct Point {
-    latitude: f32,
-    longitude: f32,
-    altitude: f32,
-    time: DateTime<UTC>
+    pub latitude: f32,
+    pub longitude: f32,
+    pub altitude: f32,
+    pub time: DateTime<UTC>
 }
 
 /*
