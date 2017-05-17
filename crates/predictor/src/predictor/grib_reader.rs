@@ -28,6 +28,7 @@ pub struct GribReader {
     second: u64,
 
     list_interpretation: Section3Interpretation,
+    grid_definition: LatLonGridDefinition
 }
 
 enum ReferenceTime {
@@ -50,7 +51,35 @@ enum Section3Interpretation {
 // http://www.nco.ncep.noaa.gov/pmb/docs/grib2/grib2_temp3-0.shtml
 #[allow(dead_code)]
 struct LatLonGridDefinition {
+    earth_model: u64, // see http://www.nco.ncep.noaa.gov/pmb/docs/grib2/grib2_table3-2.shtml
 
+    radius_scale_factor: u64,
+    radius_scale_value: u64,
+
+    major_axis_scale_factor: u64,
+    major_axis_scale_value: u64,
+
+    minor_axis_scale_factor: u64,
+    minor_axis_scale_value: u64,
+
+    points_along_parallel: u64,
+    points_along_meridian: u64,
+
+    basic_angle: u64,
+    basic_angle_subdivision: u64,
+
+    first_lat: u64,
+    first_lon: u64,
+
+    resolution_flags: u64,
+
+    last_lat: u64,
+    last_lon: u64,
+
+    delta_i: u64,
+    delta_j: u64,
+
+    scanning_mode: u64
 }
 
 
@@ -72,7 +101,7 @@ impl UnprocessedGribReader {
     fn read(&mut self) -> Result<GribReader, String> {
         println!("Trying to read from {}", self.get_path());
 
-        let mut file = File::open(self.get_path()).unwrap();
+        let file = File::open(self.get_path()).unwrap();
 
         let mut reader = ProcessingGribReader {
             bytes_read: 0,
@@ -269,16 +298,109 @@ impl ProcessingGribReader {
 
         // 13-14. Grid definition template number (= N) (See Table 3.1)
         let grid_definition_number = self.read_as_number(2);
-        if grid_definition_number != 0 {
-            return Result::Err(String::from("Can only parse standard grid definition (grid definition error)"));
-        }
+
+        let section_3_head_length = self.bytes_read;
 
         // 15-xx. Grid definition template (See Template 3.N, where N is the grid definition template number given in octets 13-14)
-        let grid_definition : LatLonGridDefinition;
+        let grid_definition : LatLonGridDefinition=  match grid_definition_number{
+            0 => {
+                // 15. Shape of the Earth (See Code Table 3.2)
+                let earth_shape = self.read_as_number(1);
 
+                // 16. Scale Factor of radius of spherical Earth
+                let radius_scale_factor = self.read_as_number(1);
+
+                // 17-20. Scale value of radius of spherical Earth
+                let radius_scale_value = self.read_as_number(4);
+
+                // 21. Scale factor of major axis of oblate spheroid Earth
+                let major_axis_scale_factor = self.read_as_number(1);
+
+                // 22-25. Scaled value of major axis of oblate spheroid Earth
+                let major_axis_scale_value = self.read_as_number(4);
+
+                // 26. Scale factor of minor axis of oblate spheroid Earth
+                let minor_axis_scale_factor = self.read_as_number(1);
+
+                // 27-30. Scaled value of minor axis of oblate spheroid Earth
+                let minor_axis_scale_value = self.read_as_number(4);
+
+                // 31-34. Ni—number of points along a parallel
+                let points_along_parallel = self.read_as_number(4);
+
+                // 35-38. Nj—number of points along a meridian
+                let points_along_meridian = self.read_as_number(4);
+
+                // 39-42. Basic angle of the initial production domain (see Note 1)
+                let basic_angle = self.read_as_number(4);
+
+                // 43-46. Subdivisions of basic angle used to define extreme longitudes and latitudes, and direction increments (see Note 1)
+                let basic_angle_subdivision = self.read_as_number(4);
+
+                // 47-50. La1—latitude of first grid point (see Note 1)
+                let first_lat = self.read_as_number(4);
+
+                // 51-54. Lo1—longitude of first grid point (see Note 1)
+                let first_lon = self.read_as_number(4);
+
+                // 55. Resolution and component flags (see Flag Table 3.3)
+                let resolution_flags = self.read_as_number(1);
+
+                // 56-59. La2—latitude of last grid point (see Note 1)
+                let last_lat = self.read_as_number(4);
+
+                // 60-63. Lo2—longitude of last grid point (see Note 1)
+                let last_lon = self.read_as_number(4);
+
+                // 64-67. Di—i direction increment (see Notes 1 and 5)
+                let delta_i = self.read_as_number(4);
+
+                // 68-71. Dj—j direction increment (see Note 1 and 5)
+                let delta_j = self.read_as_number(4);
+
+                // 72. Scanning mode (flags — see Flag Table 3.4 and Note 6)
+                let scanning_mode = self.read_as_number(1);
+
+                LatLonGridDefinition {
+                    earth_model: earth_shape,
+
+                    radius_scale_factor: radius_scale_factor,
+                    radius_scale_value: radius_scale_value,
+
+                    major_axis_scale_factor: major_axis_scale_factor,
+                    major_axis_scale_value: major_axis_scale_value,
+
+                    minor_axis_scale_factor: minor_axis_scale_factor,
+                    minor_axis_scale_value: minor_axis_scale_value,
+
+                    points_along_parallel: points_along_parallel,
+                    points_along_meridian: points_along_meridian,
+
+                    basic_angle: basic_angle,
+                    basic_angle_subdivision: basic_angle_subdivision,
+
+                    first_lat: first_lat,
+                    first_lon: first_lon,
+
+                    resolution_flags: resolution_flags,
+
+                    last_lat: last_lat,
+                    last_lon: last_lon,
+
+                    delta_i: delta_i,
+                    delta_j: delta_j,
+
+                    scanning_mode: scanning_mode
+                }
+            },
+            _ => {
+                return Result::Err(String::from("Can only parse standard grid definition (grid definition error)"));
+            }
+        };
 
         // [xx+1]-nn. Optional list of numbers defining number of points (See notes 2, 3, and 4 below)
-        self.read_n(section_3_length - 14);
+        let head_length = section_3_head_length - self.bytes_read;
+        self.read_n(section_3_length - 14 - head_length);
 
         Ok(GribReader {
             edition: edition,
@@ -292,7 +414,8 @@ impl ProcessingGribReader {
             minute: minute,
             second: second,
 
-            list_interpretation: list_interpretation
+            list_interpretation: list_interpretation,
+            grid_definition: grid_definition
         })
     }
 
