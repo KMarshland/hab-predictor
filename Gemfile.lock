@@ -1,3 +1,9 @@
+PATH
+  remote: crates/predictor
+  specs:
+    predictor (1.0.0)
+      helix_runtime (~> 0.6.0)
+
 GEM
   remote: https://rubygems.org/
   specs:
@@ -199,6 +205,7 @@ DEPENDENCIES
   jquery-rails
   listen (~> 3.0.5)
   pg (~> 0.18)
+  predictor!
   puma (~> 3.0)
   rails (~> 5.0.2)
   redis (~> 3.0)
