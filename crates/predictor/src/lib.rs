@@ -1,10 +1,11 @@
 #[macro_use]
 extern crate helix;
+pub mod predictor;
 
 ruby! {
     class Predictor {
-        def hello() {
-            println!("Hello from predictor!");
+        def run(path: String) {
+            predictor::GribReader::new(path);
         }
     }
 }

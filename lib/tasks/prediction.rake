@@ -10,8 +10,8 @@ namespace :prediction do
     DownloadWorker.new.perform
   end
 
-  task :test => [:build, :environment] do
-    Predictor.hello
+  task :test => [:environment] do
+    Predictor.run Rails.root.join('lib', 'data', '20170515', 'gfs_4_20170515_0000_000.grb2').to_s
   end
 
 end
