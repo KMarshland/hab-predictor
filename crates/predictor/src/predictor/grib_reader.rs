@@ -2,8 +2,9 @@ use std::io::prelude::*;
 use std::fs::File;
 
 struct UnreadGribReader {
-    path: String
+    path: String,
 
+    section_2_present: bool
 }
 
 pub struct GribReader {
@@ -22,7 +23,8 @@ impl GribReader {
 
     pub fn new(path: String) -> GribReader {
         let mut reader = UnreadGribReader {
-            path: path
+            path: path,
+            section_2_present: false
         };
 
         reader.read().unwrap()
@@ -148,6 +150,65 @@ impl UnreadGribReader {
 
         // 22-N. Reserved
         self.read_n(&mut file, section_1_length - 21);
+
+
+        /*
+         * SECTION 2: LOCAL USE SECTION
+         */
+
+        if self.section_2_present {
+            // 1-4. Length of the section in octets (N)
+            let section_2_length = self.read_as_number(&mut file, 4);
+            if section_2_length < 5 {
+                return Result::Err(String::from("Section 2 too short (length: ".to_string() +
+                    section_3_length.to_string().as_str() + ")"))
+            }
+
+            // 5. Number of the section (2)
+            let section_2_number = self.read_as_number(&mut file, 1);
+            if section_2_number != 2 {
+                return Result::Err(String::from("Incorrect section number (expected 2, got ".to_string() +
+                    section_2_number.to_string().as_str() + ")"))
+            }
+
+            // 6-N. Local Use
+            self.read_n(&mut file, section_2_length - 5);
+        }
+
+
+        /*
+         * SECTION 3: LOCAL USE SECTION
+         */
+
+        // 1-4. Length of the section in octets (N)
+        let section_3_length = self.read_as_number(&mut file, 4);
+        if section_3_length < 15 {
+            return Result::Err(String::from("Section 3 too short (length: ".to_string() +
+                section_3_length.to_string().as_str() + ")"))
+        }
+
+        // 5. Number of the section (3)
+        let section_3_number = self.read_as_number(&mut file, 1);
+        if section_3_number != 3 {
+            return Result::Err(String::from("Incorrect section number (expected 3, got ".to_string() +
+                section_3_number.to_string().as_str() + ")"))
+        }
+
+        // 6. Source of grid definition (See Table 3.0) (See note 1 below)
+
+        // 7-10. Number of data points
+
+        // 11. Number of octets for optional list of numbers defining number of points (See note 2 below)
+
+        // 12. Interpetation of list of numbers defining number of points (See Table 3.11)
+
+        // 13-14. Grid definition template number (= N) (See Table 3.1)
+
+        // 15-xx. Grid definition template (See Template 3.N, where N is the grid definition template number given in octets 13-14)
+
+        // [xx+1]-nn. Optional list of numbers defining number of points (See notes 2, 3, and 4 below)
+
+
 
         println!("Successfully parsed {}", self.get_path());
         Ok(GribReader {
