@@ -112,8 +112,6 @@ impl UnprocessedGribReader {
 
         let result = reader.read();
 
-        println!("Successfully read {}", self.get_path());
-
         result
     }
 
@@ -257,6 +255,7 @@ impl ProcessingGribReader {
         /*
          * SECTION 3: GRID DEFINITION SECTION
          */
+        let section_3_bytes_read = self.bytes_read;
 
         // 1-4. Length of the section in octets (N)
         let section_3_length = self.read_as_number(4);
@@ -282,7 +281,7 @@ impl ProcessingGribReader {
         let datapoint_count = self.read_as_number(4);
 
         // 11. Number of octets for optional list of numbers defining number of points (See note 2 below)
-        let optional_octet_count = self.read_as_number(4);
+        let optional_octet_count = self.read_as_number(1);
         if optional_octet_count != 0 {
             return Result::Err(String::from("Can only parse standard grid definition (octet count error)"));
         }
@@ -298,8 +297,6 @@ impl ProcessingGribReader {
 
         // 13-14. Grid definition template number (= N) (See Table 3.1)
         let grid_definition_number = self.read_as_number(2);
-
-        let section_3_head_length = self.bytes_read;
 
         // 15-xx. Grid definition template (See Template 3.N, where N is the grid definition template number given in octets 13-14)
         let grid_definition : LatLonGridDefinition=  match grid_definition_number{
@@ -398,9 +395,40 @@ impl ProcessingGribReader {
             }
         };
 
+        let section_3_length_read = {
+            self.bytes_read - section_3_bytes_read
+        };
+
         // [xx+1]-nn. Optional list of numbers defining number of points (See notes 2, 3, and 4 below)
-        let head_length = section_3_head_length - self.bytes_read;
-        self.read_n(section_3_length - 14 - head_length);
+        self.read_n(section_3_length - section_3_length_read);
+
+        /*
+         * SECTION 4: PRODUCT DEFINITION SECTION
+         */
+
+        // 1-4. Length of the section in octets (nn)
+        let section_4_length = self.read_as_number(4);
+        if section_4_length < 9 {
+            return Result::Err(String::from("Section 4 too short (length: ".to_string() +
+                section_4_length.to_string().as_str() + ")"))
+        }
+
+        // 5. Number of the section (4)
+        let section_4_number = self.read_as_number(1);
+        if section_4_number != 4 {
+            return Result::Err(String::from("Incorrect section number (expected 4, got ".to_string() +
+                section_4_number.to_string().as_str() + ")"))
+        }
+
+        /*
+         * We don't actually care about this section. Just read to the end of it
+         *
+         * // 6-7. Number of coordinate values after template (See note 1 below)
+         * // 8-9. Product definition template number (See Table 4.0)
+         * // 10-xx. Product definition template (See product template 4.X, where X is the number given in octets 8-9)
+         * // [xx+1]-nn. Optional list of coordinate values (See notes 2 and 3 below)
+         */
+        self.read_n(section_4_length - 5);
 
         Ok(GribReader {
             edition: edition,
@@ -430,12 +458,21 @@ impl ProcessingGribReader {
             handle.read_to_end(&mut buf).unwrap();
         }
 
+        if buf.len() as u64 != number_of_bytes {
+            panic!("Only read ".to_string() + buf.len().to_string().as_str() +
+                " bytes, expected to read " + number_of_bytes.to_string().as_str())
+        }
+
         self.bytes_read += number_of_bytes;
 
         buf
     }
 
     fn read_as_number(&mut self, number_of_bytes : u64) -> u64 {
+        if number_of_bytes <= 0 {
+            return 0;
+        }
+
         let buf = self.read_n(number_of_bytes);
 
         let mut number : u64 = 0;
