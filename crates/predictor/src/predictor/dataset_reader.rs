@@ -9,7 +9,7 @@ struct UninitializedDataSetReader {
 }
 
 struct DataSetReader {
-    grib_readers: Vec<GribReader>
+    grib_readers: Vec<Box<GribReader>>
 }
 
 impl UninitializedDataSetReader {
@@ -83,12 +83,14 @@ impl UninitializedDataSetReader {
                     }
                 };
 
-                let mut readers : Vec<GribReader> = vec![];
+                let mut readers : Vec<Box<GribReader>> = vec![];
                 for file in bucket {
                     println!("{}", file.path().display());
 
-                    readers.push(GribReader::new(file.path().to_str().unwrap().to_string()));
+                    readers.push(Box::new(GribReader::new(file.path().to_str().unwrap().to_string())));
                 }
+
+                // TODO: enforce reader sort order
 
                 readers
             }
@@ -107,19 +109,34 @@ impl DataSetReader {
     }
 
     pub fn velocity_at(&mut self, point: &Point) -> Velocity {
-        // TODO: find the right grib reader, then call velocity at on it
-        // Also, cache
+        // TODO: Make it check the cache here
 
-        Velocity {
-            north: 1.0,
-            east: 1.0,
-            vertical: 1.0
+        let reader = self.get_reader(point);
+
+        reader.velocity_at(point)
+    }
+
+    fn get_reader(&mut self, point: &Point) -> &Box<GribReader> {
+        // TODO: implement a binary search tree or alternative fast lookup
+
+        let mut best_reader = &self.grib_readers[0];
+
+        for i in 1..self.grib_readers.len() {
+            let reader = &self.grib_readers[i];
+            let abs_seconds = reader.time.signed_duration_since(point.time).num_seconds().abs();
+            let best_seconds = best_reader.time.signed_duration_since(point.time).num_seconds().abs();
+
+            if abs_seconds < best_seconds {
+                best_reader = reader;
+            }
         }
+
+        best_reader
     }
 }
 
 lazy_static! {
-    static ref READER : Mutex<DataSetReader> =  Mutex::new(DataSetReader::new(
+    static ref READER : Mutex<DataSetReader> = Mutex::new(DataSetReader::new(
         "/Users/kaimarshland/Programming/ssi/prediction/lib/data".to_string()
     ));
 }

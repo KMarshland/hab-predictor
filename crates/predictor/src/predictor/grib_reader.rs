@@ -1,5 +1,7 @@
 use std::io::prelude::*;
 use std::fs::File;
+use chrono::prelude::*;
+use predictor::point::*;
 
 struct UnprocessedGribReader {
     path: String,
@@ -20,12 +22,7 @@ pub struct GribReader {
     total_length: u64,
 
     reference_time: ReferenceTime,
-    year: u64,
-    month: u64,
-    day: u64,
-    hour: u64,
-    minute: u64,
-    second: u64,
+    pub time: DateTime<UTC>,
 
     list_interpretation: Section3Interpretation,
     grid_definition: LatLonGridDefinition
@@ -94,6 +91,15 @@ impl GribReader {
         reader.read().unwrap()
     }
 
+    pub fn velocity_at(&self, point: &Point) -> Velocity {
+        // TODO: Implement this
+
+        Velocity {
+            north: 1.0,
+            east: 1.0,
+            vertical: 1.0
+        }
+    }
 }
 
 impl UnprocessedGribReader {
@@ -435,12 +441,7 @@ impl ProcessingGribReader {
             total_length: total_length,
 
             reference_time: reference_time,
-            year: year,
-            month: month,
-            day: day,
-            hour: hour,
-            minute: minute,
-            second: second,
+            time: UTC.ymd(year as i32, month as u32, day as u32).and_hms(hour as u32, minute as u32, second as u32),
 
             list_interpretation: list_interpretation,
             grid_definition: grid_definition
