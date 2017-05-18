@@ -1,5 +1,6 @@
 use predictor::point::*;
 use predictor::dataset_reader::velocity_at;
+//use serde_json;
 
 pub enum PredictionProfile {
     Standard,
@@ -50,42 +51,82 @@ struct ValBalPredictorParams {
 /*
  * The result of a prediction
  */
-pub struct Prediction {
-    result: Vec<Point>
+pub trait Prediction {
+    fn serialize(&self) -> String;
+}
+
+#[derive(Serialize)]
+struct StandardPrediction {
+    ascent: Vec<Point>,
+    burst: Point,
+    descent: Vec<Point>
+}
+
+#[derive(Serialize)]
+struct ValBalPrediction {
+    positions: Vec<Point>
+}
+
+impl Prediction for StandardPrediction {
+
+    fn serialize(&self) -> String {
+//        serde_json::to_string(&self).unwrap()
+        "{}".to_string()
+    }
+}
+
+impl Prediction for ValBalPrediction {
+
+    fn serialize(&self) -> String {
+        "{}".to_string()
+    }
 }
 
 /*
  * Wrapper function for predictor
  * Based on the profile, delegates to the appropriate model
  */
-pub fn predict(params : PredictorParams) -> Result<Prediction, String> {
+pub fn predict(params : PredictorParams) -> Result<String, String> {
     match params.profile {
         PredictionProfile::Standard => {
-            standard_predict(StandardPredictorParams {
+            match standard_predict(StandardPredictorParams {
                 launch: params.launch,
 
                 burst_altitude: params.burst_altitude,
                 ascent_rate: params.ascent_rate,
                 descent_rate: params.descent_rate
-            })
+            }) {
+                Ok(value) => Ok(value.serialize()),
+                Err(e) => Err(e)
+            }
         },
 
         PredictionProfile::ValBal => {
-            valbal_predict(ValBalPredictorParams {
+            match valbal_predict(ValBalPredictorParams {
                 launch: params.launch,
 
                 duration: params.duration
-            })
+            }) {
+                Ok(value) => Ok(value.serialize()),
+                Err(e) => Err(e)
+            }
         }
     }
 }
 
-fn standard_predict(params : StandardPredictorParams) -> Result<Prediction, String> {
+fn standard_predict(params : StandardPredictorParams) -> Result<StandardPrediction, String> {
+
+    return Ok(StandardPrediction {
+        ascent: vec![],
+        burst: params.launch,
+        descent: vec![]
+    });
 
     let mut current : Point = params.launch;
-    let mut positions : Vec<Point> = vec![];
 
     // ascent
+    let mut ascent : Vec<Point> = vec![];
+
     let ascent_velocity = Velocity {
         north: 0.0,
         east: 0.0,
@@ -96,13 +137,15 @@ fn standard_predict(params : StandardPredictorParams) -> Result<Prediction, Stri
         let velocity = velocity_at(&current) + &ascent_velocity;
 
         current = current + &velocity;
-        positions.push(current.clone());
+        ascent.push(current.clone());
     }
 
     // burst
     let burst = current.clone();
 
     // descent
+    let mut descent : Vec<Point> = vec![];
+
     let descent_velocity = Velocity {
         north: 0.0,
         east: 0.0,
@@ -112,17 +155,29 @@ fn standard_predict(params : StandardPredictorParams) -> Result<Prediction, Stri
         let velocity = velocity_at(&current) + &descent_velocity;
 
         current = current + &velocity;
-        positions.push(current.clone());
+        descent.push(current.clone());
     }
 
-    Ok(Prediction {
-        result: positions
+    Ok(StandardPrediction {
+        ascent: ascent,
+        burst: burst,
+        descent: descent
     })
 }
 
-fn valbal_predict(params : ValBalPredictorParams) -> Result<Prediction, String> {
-    Ok(Prediction {
-        result: vec![]
+fn valbal_predict(params : ValBalPredictorParams) -> Result<ValBalPrediction, String> {
+    let mut current : Point = params.launch;
+    let mut positions : Vec<Point> = vec![];
+
+//    while current.time {
+//        let velocity = velocity_at(&current);
+//
+//        current = current + &velocity;
+//        positions.push(current.clone());
+//    }
+
+    Ok(ValBalPrediction {
+        positions: positions
     })
 }
 

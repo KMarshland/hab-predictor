@@ -10,7 +10,7 @@ namespace :prediction do
   end
 
   task :test => [:environment] do
-    Predictor.predict(
+    puts JSON.pretty_generate(Predictor.predict(
         lat: 36.8491253,
         lon: -121.4342394,
         altitude: 0,
@@ -19,7 +19,7 @@ namespace :prediction do
         burst_altitude: 25000,
         ascent_rate: 5,
         descent_rate: 5
-    )
+    ))
   end
 
 end

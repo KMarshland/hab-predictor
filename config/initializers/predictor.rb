@@ -28,7 +28,7 @@ class Predictor
           raise ArgumentError, 'Missing required parameter duration' if duration.blank?
       end
 
-      RustPredictor.predict(
+      JSON(RustPredictor.predict(
                        lat.to_f,
                        lon.to_f,
                        altitude.to_f,
@@ -38,7 +38,7 @@ class Predictor
                        ascent_rate.to_f,
                        descent_rate.to_f,
                        duration.to_f
-      )
+      ))
     end
 
   end

@@ -5,6 +5,12 @@ extern crate helix;
 extern crate lazy_static;
 extern crate chrono;
 
+#[macro_use]
+extern crate serde_derive;
+
+extern crate serde;
+//extern crate serde_json;
+
 use chrono::prelude::*;
 
 pub mod predictor;
@@ -15,7 +21,8 @@ ruby! {
             println!("{}", path)
         }
 
-        def predict(latitude: f64, longitude: f64, altitude: f64, time: String, profile: String, burst_altitude: f64, ascent_rate: f64, descent_rate: f64, duration: f64) {
+        def predict(latitude: f64, longitude: f64, altitude: f64, time: String, profile: String, burst_altitude: f64, ascent_rate: f64, descent_rate: f64, duration: f64) -> String {
+
             predictor::predictor::predict(predictor::predictor::PredictorParams {
                 launch: predictor::point::Point {
                     latitude: latitude as f32,
@@ -39,7 +46,8 @@ ruby! {
                 descent_rate: descent_rate as f32,
 
                 duration: duration as f32
-            });
+            }).unwrap()
+
         }
     }
 }

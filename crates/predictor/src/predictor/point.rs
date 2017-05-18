@@ -2,6 +2,7 @@ use chrono::prelude::*;
 use chrono::Duration;
 use std::ops::Add;
 use std::f32;
+use serde::ser::{Serialize, Serializer, SerializeMap};
 
 const INTEGRAL_DURATION : f32 = 1.0; // seconds
 const EARTH_RADIUS : f32 = 6378.0;
@@ -15,6 +16,17 @@ pub struct Point {
     pub longitude: f32,
     pub altitude: f32,
     pub time: DateTime<UTC>
+}
+
+impl ::serde::Serialize for Point {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: ::serde::Serializer {
+        let mut map = serializer.serialize_map(Some(4 as usize))?;
+        map.serialize_entry("latitude", &self.latitude)?;
+        map.serialize_entry("longitude", &self.longitude)?;
+        map.serialize_entry("altitude", &self.altitude)?;
+        map.serialize_entry("time", &self.time.to_string())?;
+        map.end()
+    }
 }
 
 /*
