@@ -72,7 +72,9 @@ impl Prediction for StandardPrediction {
 
     fn serialize(&self) -> String {
         //        serde_json::to_string(&self).unwrap()
-        "{}".to_string()
+        ("{\"length\": ".to_string() +
+            (self.ascent.len() + self.descent.len()).to_string().as_str() +
+            "}").to_string()
     }
 }
 
@@ -117,11 +119,7 @@ pub fn predict(params : PredictorParams) -> Result<String, String> {
 
 fn standard_predict(params : StandardPredictorParams) -> Result<StandardPrediction, String> {
 
-    return Ok(StandardPrediction {
-        ascent: vec![],
-        burst: params.launch,
-        descent: vec![]
-    });
+    // TODO: implement checks to avoid infinite loops if ascent rate or descent rate is silly
 
     let mut current : Point = params.launch;
 
@@ -150,7 +148,7 @@ fn standard_predict(params : StandardPredictorParams) -> Result<StandardPredicti
     let descent_velocity = Velocity {
         north: 0.0,
         east: 0.0,
-        vertical: params.descent_rate
+        vertical: -params.descent_rate
     };
     while current.altitude > 0.0 {
         let velocity = velocity_at(&current) + &descent_velocity;
