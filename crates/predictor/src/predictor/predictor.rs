@@ -1,4 +1,5 @@
-use predictor::point::Point;
+use predictor::point::*;
+use predictor::dataset_reader::velocity_at;
 
 pub enum PredictionProfile {
     Standard,
@@ -80,8 +81,42 @@ pub fn predict(params : PredictorParams) -> Result<Prediction, String> {
 }
 
 fn standard_predict(params : StandardPredictorParams) -> Result<Prediction, String> {
+
+    let mut current : Point = params.launch;
+    let mut positions : Vec<Point> = vec![];
+
+    // ascent
+    let ascent_velocity = Velocity {
+        north: 0.0,
+        east: 0.0,
+        vertical: params.ascent_rate
+    };
+
+    while current.altitude < params.burst_altitude {
+        let velocity = velocity_at(&current) + &ascent_velocity;
+
+        current = current + &velocity;
+        positions.push(current.clone());
+    }
+
+    // burst
+    let burst = current.clone();
+
+    // descent
+    let descent_velocity = Velocity {
+        north: 0.0,
+        east: 0.0,
+        vertical: params.descent_rate
+    };
+    while current.altitude > 0.0 {
+        let velocity = velocity_at(&current) + &descent_velocity;
+
+        current = current + &velocity;
+        positions.push(current.clone());
+    }
+
     Ok(Prediction {
-        result: vec![]
+        result: positions
     })
 }
 

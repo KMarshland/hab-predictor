@@ -28,7 +28,7 @@ impl DataSetReader {
         reader.initialize()
     }
 
-    pub fn velocity_at(&mut self, point: Point) -> Velocity {
+    pub fn velocity_at(&mut self, point: &Point) -> Velocity {
         unimplemented!();
 
         // TODO: find the right grib reader, then call velocity at on it
@@ -42,6 +42,6 @@ lazy_static! {
     ));
 }
 
-pub fn velocity_at(point: Point) -> Velocity {
-    READER.lock().unwrap().velocity_at(point)
+pub fn velocity_at(point: &Point) -> Velocity {
+    READER.lock().unwrap().velocity_at(&point)
 }
