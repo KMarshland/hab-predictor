@@ -1,5 +1,6 @@
 use predictor::point::*;
 use predictor::dataset_reader::velocity_at;
+use chrono::Duration;
 //use serde_json;
 
 pub enum PredictionProfile {
@@ -70,7 +71,7 @@ struct ValBalPrediction {
 impl Prediction for StandardPrediction {
 
     fn serialize(&self) -> String {
-//        serde_json::to_string(&self).unwrap()
+        //        serde_json::to_string(&self).unwrap()
         "{}".to_string()
     }
 }
@@ -169,12 +170,15 @@ fn valbal_predict(params : ValBalPredictorParams) -> Result<ValBalPrediction, St
     let mut current : Point = params.launch;
     let mut positions : Vec<Point> = vec![];
 
-//    while current.time {
-//        let velocity = velocity_at(&current);
-//
-//        current = current + &velocity;
-//        positions.push(current.clone());
-//    }
+    let launch_time = current.clone().time;
+    let end_time = launch_time + Duration::seconds(params.duration as i64);
+
+    while current.time < end_time {
+        let velocity = velocity_at(&current);
+
+        current = current + &velocity;
+        positions.push(current.clone());
+    }
 
     Ok(ValBalPrediction {
         positions: positions

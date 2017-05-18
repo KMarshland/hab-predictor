@@ -4,7 +4,7 @@ use std::ops::Add;
 use std::f32;
 use serde::ser::{Serialize, Serializer, SerializeMap};
 
-const INTEGRAL_DURATION : f32 = 1.0; // seconds
+const INTEGRAL_DURATION : f32 = 60.0; // seconds
 const EARTH_RADIUS : f32 = 6378.0;
 
 /*
