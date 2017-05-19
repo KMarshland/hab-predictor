@@ -1,7 +1,7 @@
 use predictor::point::*;
 use predictor::dataset_reader::velocity_at;
 use chrono::Duration;
-//use serde_json;
+use serde_json;
 
 pub enum PredictionProfile {
     Standard,
@@ -71,10 +71,7 @@ struct ValBalPrediction {
 impl Prediction for StandardPrediction {
 
     fn serialize(&self) -> String {
-        //        serde_json::to_string(&self).unwrap()
-        ("{\"length\": ".to_string() +
-            (self.ascent.len() + self.descent.len()).to_string().as_str() +
-            "}").to_string()
+        serde_json::to_string(&self).unwrap()
     }
 }
 
@@ -116,6 +113,8 @@ pub fn predict(params : PredictorParams) -> Result<String, String> {
         }
     }
 }
+
+// TODO: Use Adams Bashforth Moulton for fancy, high quality integrals
 
 fn standard_predict(params : StandardPredictorParams) -> Result<StandardPrediction, String> {
 

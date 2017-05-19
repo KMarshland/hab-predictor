@@ -2,7 +2,7 @@ use chrono::prelude::*;
 use chrono::Duration;
 use std::ops::Add;
 use std::f32;
-use serde::ser::{Serialize, Serializer, SerializeMap};
+use serde::ser::{SerializeMap};
 
 const INTEGRAL_DURATION : f32 = 60.0; // seconds
 const EARTH_RADIUS : f32 = 6378.0;
@@ -24,7 +24,7 @@ impl ::serde::Serialize for Point {
         map.serialize_entry("latitude", &self.latitude)?;
         map.serialize_entry("longitude", &self.longitude)?;
         map.serialize_entry("altitude", &self.altitude)?;
-        map.serialize_entry("time", &self.time.to_string())?;
+        map.serialize_entry("time", &self.time.to_string())?; // potentially switch this to unix epoch?
         map.end()
     }
 }
