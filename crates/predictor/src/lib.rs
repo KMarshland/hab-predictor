@@ -46,7 +46,7 @@ ruby! {
                 descent_rate: descent_rate as f32,
 
                 duration: duration as f32
-            }).unwrap()
+            }).unwrap().serialize()
 
         }
     }

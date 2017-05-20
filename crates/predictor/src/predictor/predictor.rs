@@ -52,33 +52,33 @@ struct ValBalPredictorParams {
 /*
  * The result of a prediction
  */
-pub trait Prediction {
-    fn serialize(&self) -> String;
+pub enum Prediction {
+    Standard(StandardPrediction),
+    ValBal(ValBalPrediction)
 }
 
 #[derive(Serialize)]
-struct StandardPrediction {
+pub struct StandardPrediction {
     ascent: Vec<Point>,
     burst: Point,
     descent: Vec<Point>
 }
 
 #[derive(Serialize)]
-struct ValBalPrediction {
+pub struct ValBalPrediction {
     positions: Vec<Point>
 }
 
-impl Prediction for StandardPrediction {
-
-    fn serialize(&self) -> String {
-        serde_json::to_string(&self).unwrap()
-    }
-}
-
-impl Prediction for ValBalPrediction {
-
-    fn serialize(&self) -> String {
-        "{}".to_string()
+impl Prediction {
+    pub fn serialize(&self) -> String {
+        match *self {
+            Prediction::Standard(ref p) => {
+                serde_json::to_string(p).unwrap()
+            },
+            Prediction::ValBal(ref p) => {
+                serde_json::to_string(p).unwrap()
+            }
+        }
     }
 }
 
@@ -86,37 +86,31 @@ impl Prediction for ValBalPrediction {
  * Wrapper function for predictor
  * Based on the profile, delegates to the appropriate model
  */
-pub fn predict(params : PredictorParams) -> Result<String, String> {
+pub fn predict(params : PredictorParams) -> Result<Prediction, String> {
     match params.profile {
         PredictionProfile::Standard => {
-            match standard_predict(StandardPredictorParams {
+            standard_predict(StandardPredictorParams {
                 launch: params.launch,
 
                 burst_altitude: params.burst_altitude,
                 ascent_rate: params.ascent_rate,
                 descent_rate: params.descent_rate
-            }) {
-                Ok(value) => Ok(value.serialize()),
-                Err(e) => Err(e)
-            }
+            })
         },
 
         PredictionProfile::ValBal => {
-            match valbal_predict(ValBalPredictorParams {
+            valbal_predict(ValBalPredictorParams {
                 launch: params.launch,
 
                 duration: params.duration
-            }) {
-                Ok(value) => Ok(value.serialize()),
-                Err(e) => Err(e)
-            }
+            })
         }
     }
 }
 
 // TODO: Use Adams Bashforth Moulton for fancy, high quality integrals
 
-fn standard_predict(params : StandardPredictorParams) -> Result<StandardPrediction, String> {
+fn standard_predict(params : StandardPredictorParams) -> Result<Prediction, String> {
 
     // TODO: implement checks to avoid infinite loops if ascent rate or descent rate is silly
 
@@ -156,14 +150,14 @@ fn standard_predict(params : StandardPredictorParams) -> Result<StandardPredicti
         descent.push(current.clone());
     }
 
-    Ok(StandardPrediction {
+    Ok(Prediction::Standard(StandardPrediction {
         ascent: ascent,
         burst: burst,
         descent: descent
-    })
+    }))
 }
 
-fn valbal_predict(params : ValBalPredictorParams) -> Result<ValBalPrediction, String> {
+fn valbal_predict(params : ValBalPredictorParams) -> Result<Prediction, String> {
     let mut current : Point = params.launch;
     let mut positions : Vec<Point> = vec![];
 
@@ -177,9 +171,9 @@ fn valbal_predict(params : ValBalPredictorParams) -> Result<ValBalPrediction, St
         positions.push(current.clone());
     }
 
-    Ok(ValBalPrediction {
+    Ok(Prediction::ValBal(ValBalPrediction {
         positions: positions
-    })
+    }))
 }
 
 
