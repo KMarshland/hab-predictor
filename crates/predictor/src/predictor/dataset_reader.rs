@@ -1,5 +1,6 @@
 use std::sync::Mutex;
 use std::fs;
+use std::env;
 use std::fs::DirEntry;
 use predictor::point::*;
 use predictor::grib_reader::*;
@@ -137,7 +138,7 @@ impl DataSetReader {
 
 lazy_static! {
     static ref READER : Mutex<DataSetReader> = Mutex::new(DataSetReader::new(
-        "/Users/kaimarshland/Programming/ssi/prediction/lib/data".to_string()
+        [env::var("RAILS_ROOT").expect("RAILS_ROOT environment variable not found"), "/lib/data".to_string()].concat()
     ));
 }
 
