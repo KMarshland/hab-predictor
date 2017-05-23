@@ -1,5 +1,6 @@
 use std::sync::Mutex;
 use std::fs;
+use std::env;
 use std::fs::DirEntry;
 use predictor::point::*;
 use predictor::grib_reader::*;
@@ -29,11 +30,16 @@ impl UninitializedDataSetReader {
                     let file_name = dir.file_name();
                     let name = file_name.to_str().unwrap();
 
-                    let date_num = name.parse::<i32>().unwrap();
+                    let date_num = name.parse::<i32>();
 
-                    if date_num > best_date {
-                        best_date = date_num;
-                        best_dir = Some(dir);
+                    match date_num {
+                        Ok(val) => {
+                            if val > best_date {
+                                best_date = val;
+                                best_dir = Some(dir);
+                            }
+                        }
+                        Err(why) => println!("Warning: junk file/folder in lib/data: {}", name),
                     }
                 }
 
@@ -137,7 +143,7 @@ impl DataSetReader {
 
 lazy_static! {
     static ref READER : Mutex<DataSetReader> = Mutex::new(DataSetReader::new(
-        "/Users/kaimarshland/Programming/ssi/prediction/lib/data".to_string()
+        [env::var("RAILS_ROOT").expect("RAILS_ROOT environment variable not found"), "/lib/data".to_string()].concat()
     ));
 }
 

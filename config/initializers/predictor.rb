@@ -3,6 +3,7 @@ require 'predictor'
 
 Object.const_set('RustPredictor', Predictor)
 Object.send(:remove_const, :Predictor)
+ENV["RAILS_ROOT"] = Rails.root.to_s
 
 # Define our own version with nice wrapper functions
 class Predictor
