@@ -30,11 +30,16 @@ impl UninitializedDataSetReader {
                     let file_name = dir.file_name();
                     let name = file_name.to_str().unwrap();
 
-                    let date_num = name.parse::<i32>().unwrap();
+                    let date_num = name.parse::<i32>();
 
-                    if date_num > best_date {
-                        best_date = date_num;
-                        best_dir = Some(dir);
+                    match date_num {
+                        Ok(val) => {
+                            if val > best_date {
+                                best_date = val;
+                                best_dir = Some(dir);
+                            }
+                        }
+                        Err(why) => println!("Warning: junk file/folder in lib/data: {}", name),
                     }
                 }
 
