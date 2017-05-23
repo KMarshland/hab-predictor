@@ -79,6 +79,9 @@ struct LatLonGridDefinition {
     scanning_mode: u64
 }
 
+extern {
+
+}
 
 impl GribReader {
 
