@@ -1,6 +1,5 @@
 use std::io::prelude::*;
 use std::fs::File;
-use std::mem;
 use chrono::prelude::*;
 use predictor::point::*;
 
@@ -26,6 +25,28 @@ enum ReferenceTime {
     ObservationTime,
     Invalid
 }
+
+impl GribReader {
+
+    pub fn new(path: String) -> GribReader {
+        let mut reader = UnprocessedGribReader {
+            path: path
+        };
+
+        reader.read().unwrap()
+    }
+
+    pub fn velocity_at(&self, point: &Point) -> Velocity {
+        // TODO: Implement this
+
+        Velocity {
+            north: 1.0,
+            east: 1.0,
+            vertical: 1.0
+        }
+    }
+}
+
 
 impl UnprocessedGribReader {
 
@@ -84,7 +105,7 @@ impl ProcessingGribReader {
         println!("File is Edition {}", edition);
 
         // 9-16. Total length of GRIB message in octets (All sections)
-        let total_length = self.read_as_u64(8);
+        self.read_as_u64(8);
 
 
         /*
@@ -147,18 +168,13 @@ impl ProcessingGribReader {
         // 19. Second
         let second = self.read_as_u64(1);
 
-        // 20. Production Status of Processed data in the GRIB message (See Table 1.3)
-        self.read_n(1);
+        let time = UTC.ymd(year as i32, month as u32, day as u32).and_hms(hour as u32, minute as u32, second as u32);
 
-        // 21. Type of processed data in this GRIB message (See Table 1.4)
-        self.read_n(1);
-
-        // 22-N. Reserved
-        self.read_n(section_1_length - 21);
+        self.convert();
 
         Ok(GribReader {
             reference_time: reference_time,
-            time: UTC.ymd(year as i32, month as u32, day as u32).and_hms(hour as u32, minute as u32, second as u32),
+            time: time,
         })
     }
 
@@ -199,7 +215,21 @@ impl ProcessingGribReader {
         number
     }
 
+    fn convert(&mut self){
+        let levels = [0, 1, 2, 3, 5, 7, 10, 20, 30, 50, 70, 100, 150, 200, 250, 300, 350, 400, 450, 500, 550, 600, 650, 700, 750, 800, 850, 900, 925, 950, 975, 1000];
+
+        for level in levels.iter() {
+            self.convert_level(*level as u32);
+        }
+    }
+
+    fn convert_level(&mut self, level : u32){
+
+    }
+
     fn get_file(&mut self) -> &mut File {
         &mut self.file
     }
 }
+
+
