@@ -1,6 +1,8 @@
 use std::io::prelude::*;
 use std::fs::File;
+use std::io::BufReader;
 use std::process::Command;
+use std::mem;
 use chrono::prelude::*;
 use predictor::point::*;
 
@@ -18,6 +20,8 @@ struct ProcessingGribReader {
 pub struct GribReader {
     reference_time: ReferenceTime,
     pub time: DateTime<UTC>,
+
+    path: String
 }
 
 enum ReferenceTime {
@@ -26,6 +30,13 @@ enum ReferenceTime {
     VerifyingTimeOfForecast,
     ObservationTime,
     Invalid
+}
+
+struct GribLine {
+    lat : f32,
+    lon : f32,
+    value : f32,
+    key : String
 }
 
 impl GribReader {
@@ -55,11 +66,69 @@ impl GribReader {
             }
         }
 
-        Velocity {
-            north: 1.0,
-            east: 1.0,
-            vertical: 1.0
+        let lat = (point.latitude * 2.0).round() / 2.0;
+        let lon = (point.longitude * 2.0).round() / 2.0 + 180.0; //TODO: make sure this is the right correction
+
+        let proper_filename = {
+            let mut parts = self.path.split('.');
+            parts.next().unwrap().to_string() + "_l" + best_level.to_string().as_str() + ".gribp"
+        };
+        let proper_file = File::open(proper_filename).unwrap();
+
+        GribReader::scan_file(proper_file, lat, lon)
+    }
+
+    fn scan_file(file : File, lat : f32, lon : f32) -> Velocity {
+        let mut u : f32 = 0.0;
+        let mut v : f32 = 0.0;
+
+        let has_u = false;
+        let has_v = false;
+
+        let mut reader = BufReader::new(&file);
+
+        loop {
+            match GribReader::read_line(&mut reader) {
+                _ => {
+                    break;
+                }
+            }
         }
+
+        Velocity {
+            north: u,
+            east: v,
+            vertical: 0.0
+        }
+    }
+
+    fn read_line(reader: &mut BufReader<&File>) -> Option<GribLine> {
+        let mut buffer = vec![];
+
+        let result = reader.read_until(b'\n', &mut buffer);
+        match result {
+            Ok(bytes) => {
+                if
+                    bytes < 12 {
+                    return None;
+                }
+            },
+            _ => {
+                return None;
+            }
+        }
+
+        let lat = bytes_to_f32(buffer[0..3].to_vec());
+        let lon = bytes_to_f32(buffer[4..7].to_vec());
+        let val = bytes_to_f32(buffer[7..10].to_vec());
+        let key = String::from_utf8(buffer[11..].to_vec()).unwrap();
+
+        Some(GribLine {
+            lat: lat,
+            lon: lon,
+            value: val,
+            key: key
+        })
     }
 }
 
@@ -190,6 +259,7 @@ impl ProcessingGribReader {
         Ok(GribReader {
             reference_time: reference_time,
             time: time,
+            path: self.path.clone()
         })
     }
 
@@ -221,13 +291,7 @@ impl ProcessingGribReader {
 
         let buf = self.read_n(number_of_bytes);
 
-        let mut number : u64 = 0;
-        for i in 0..number_of_bytes {
-            // TODO: these casts spook me
-            number += (buf[i as usize] as u64) << (8 * (number_of_bytes - i - 1));
-        }
-
-        number
+        bytes_to_u64(buf, number_of_bytes)
     }
 
     fn convert(&mut self){
@@ -240,8 +304,8 @@ impl ProcessingGribReader {
             .output()
             .expect("failed to execute process");
 
-        println!("STDOUT: {}", String::from_utf8(result.stdout).unwrap());
-        println!("STDERR: {}", String::from_utf8(result.stderr).unwrap());
+        //        println!("{}", String::from_utf8(result.stdout).unwrap());
+        println!("{}", String::from_utf8(result.stderr).unwrap());
     }
 
     fn get_file(&mut self) -> &mut File {
@@ -249,4 +313,19 @@ impl ProcessingGribReader {
     }
 }
 
+fn bytes_to_u64(bytes : Vec<u8>, number_of_bytes : u64) -> u64 {
+    let mut number : u64 = 0;
+    for i in 0..number_of_bytes {
+        // TODO: these casts spook me
+        number += (bytes[i as usize] as u64) << (8 * (number_of_bytes - i - 1));
+    }
+
+    number
+}
+
+fn bytes_to_f32(bytes : Vec<u8>) -> f32 {
+    let num = bytes_to_u64(bytes, 4) as u32;
+
+    unsafe {mem::transmute(num)}
+}
 
