@@ -1,7 +1,6 @@
 use std::sync::Mutex;
 use std::fs;
 use std::env;
-use std::collections::HashMap;
 use std::fs::DirEntry;
 use predictor::point::*;
 use predictor::grib_reader::*;
@@ -11,7 +10,7 @@ struct UninitializedDataSetReader {
 }
 
 struct DataSetReader {
-    grib_readers: HashMap<i32, Box<GribReader>>
+    grib_readers: Vec<Box<GribReader>>
 }
 
 impl UninitializedDataSetReader {
@@ -90,7 +89,7 @@ impl UninitializedDataSetReader {
                     }
                 };
 
-                let mut readers : HashMap<i32, Box<GribReader>> = HashMap::new();
+                let mut readers : Vec<Box<GribReader>> = vec![];
                 let mut last_hour = 0.0;
                 let mut last_file = &bucket[0];
 
@@ -104,12 +103,12 @@ impl UninitializedDataSetReader {
 
                     for hr in (last_hour as i32)..divider {
                         let reader = Box::new(GribReader::new(last_file.path().to_str().unwrap().to_string()));
-                        readers.insert(hr, reader);
+                        readers[hr as usize] = reader;
                     }
 
                     for hr in divider..(hour as i32) {
                         let reader = Box::new(GribReader::new(file.path().to_str().unwrap().to_string()));
-                        readers.insert(hr, reader);
+                        readers[hr as usize] = reader;
                     }
 
                     last_hour = hour;
@@ -144,11 +143,11 @@ impl DataSetReader {
 
     fn get_reader(&mut self, point: &Point) -> &Box<GribReader> {
 
-        let first_reader = &self.grib_readers[&0i32];
+        let first_reader = &self.grib_readers[0];
         // Number of hours since the start of the data
-        let num_hours = (((first_reader.time.signed_duration_since(point.time).num_minutes().abs()) as f64)/60.0).round() as i32;
+        let num_hours = (((first_reader.time.signed_duration_since(point.time).num_minutes().abs()) as f64)/60.0).round() as usize;
 
-        let best_reader = &self.grib_readers.get(&num_hours);
+        let best_reader = &self.grib_readers.get(num_hours);
 
         match best_reader {
             &Some(reader) => return reader,
