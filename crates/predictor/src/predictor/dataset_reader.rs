@@ -91,19 +91,29 @@ impl UninitializedDataSetReader {
                 };
 
                 let mut readers : HashMap<i32, Box<GribReader>> = HashMap::new();
-                let mut last_hour = 0;
-                for file in bucket {
+                let mut last_hour = 0.0;
+                let mut last_file = &bucket[0];
+
+                for file in &bucket[1..] {
                     println!("{}", file.path().display());
 
                     let name = file.file_name().into_string().unwrap();
-                    let hour = (name.split("_").collect::<Vec<&str>>()[4][0..3].parse::<i32>().unwrap())+1;
+                    let hour = name.split("_").collect::<Vec<&str>>()[4][0..3].parse::<f32>().unwrap();
 
-                    for hr in last_hour..hour {
+                    let divider = (hour - (((hour-last_hour)-1.0)/2.0)).round() as i32;
+
+                    for hr in (last_hour as i32)..divider {
+                        let reader = Box::new(GribReader::new(last_file.path().to_str().unwrap().to_string()));
+                        readers.insert(hr, reader);
+                    }
+
+                    for hr in divider..(hour as i32) {
                         let reader = Box::new(GribReader::new(file.path().to_str().unwrap().to_string()));
                         readers.insert(hr, reader);
                     }
 
                     last_hour = hour;
+                    last_file = file;
                 }
 
                 // TODO: enforce reader sort order
@@ -133,7 +143,6 @@ impl DataSetReader {
     }
 
     fn get_reader(&mut self, point: &Point) -> &Box<GribReader> {
-        // TODO: implement a binary search tree or alternative fast lookup
 
         let first_reader = &self.grib_readers[&0i32];
         // Number of hours since the start of the data
