@@ -97,6 +97,9 @@ impl UninitializedDataSetReader {
                     println!("{}", file.path().display());
 
                     let name = file.file_name().into_string().unwrap();
+
+                    // Files look like gfs_4_20170522_0000_018.grb2
+                    // Last set of three numbers ("018") represents hours since the start of the data
                     let hour = name.split("_").collect::<Vec<&str>>()[4][0..3].parse::<f32>().unwrap();
 
                     let divider = (hour - (((hour-last_hour)-1.0)/2.0)).round() as i32;
