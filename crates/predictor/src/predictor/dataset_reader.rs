@@ -10,12 +10,14 @@ struct UninitializedDataSetReader {
 }
 
 struct DataSetReader {
-    grib_readers: Vec<Box<GribReader>>
+    grib_readers: Vec<usize>,
+    grib_readers_raw: Vec<Box<GribReader>>
 }
 
 impl UninitializedDataSetReader {
 
     fn initialize(&mut self) -> DataSetReader {
+        let mut readers_raw : Vec<Box<GribReader>> = vec![];
         DataSetReader {
             grib_readers: {
                 let folders = fs::read_dir(self.dataset_directory.as_str()).unwrap();
@@ -89,11 +91,11 @@ impl UninitializedDataSetReader {
                     }
                 };
 
-                let mut readers : Vec<Box<GribReader>> = vec![];
+                let mut readers : Vec<usize> = vec![];
                 let mut last_hour = 0.0;
-                let mut last_file = &bucket[0];
+                readers_raw.push(Box::new(GribReader::new((&bucket[0]).path().to_str().unwrap().to_string())));
 
-                for file in &bucket[1..] {
+                for (i, file) in (bucket[1..]).iter().enumerate() {
                     println!("{}", file.path().display());
 
                     let name = file.file_name().into_string().unwrap();
@@ -104,23 +106,26 @@ impl UninitializedDataSetReader {
 
                     let divider = (hour - (((hour-last_hour)-1.0)/2.0)).round() as i32;
 
+                    let reader = Box::new(GribReader::new(file.path().to_str().unwrap().to_string()));
+
                     for hr in (last_hour as i32)..divider {
-                        let reader = Box::new(GribReader::new(last_file.path().to_str().unwrap().to_string()));
-                        readers.insert((hr as usize), reader);
+                        readers.insert((hr as usize), i);
                     }
 
                     for hr in divider..(hour as i32) {
-                        let reader = Box::new(GribReader::new(file.path().to_str().unwrap().to_string()));
-                        readers.insert((hr as usize), reader);
+                        readers.insert((hr as usize), i+1);
                     }
 
                     last_hour = hour;
-                    last_file = file;
+                    readers_raw.push(reader);
                 }
 
                 // TODO: enforce reader sort order
 
                 readers
+            },
+            grib_readers_raw: {
+                readers_raw
             }
         }
     }
@@ -146,14 +151,14 @@ impl DataSetReader {
 
     fn get_reader(&mut self, point: &Point) -> &Box<GribReader> {
 
-        let first_reader = &self.grib_readers[0];
+        let first_reader = &self.grib_readers_raw[self.grib_readers[0]];
         // Number of hours since the start of the data
         let num_hours = (((first_reader.time.signed_duration_since(point.time).num_minutes().abs()) as f64)/60.0).round() as usize;
 
         let best_reader = &self.grib_readers.get(num_hours);
 
         match best_reader {
-            &Some(reader) => return reader,
+            &Some(index) => return &self.grib_readers_raw[*index],
             _ => panic!("Error: Inputted time outside available time range for data"),
         }
     }
