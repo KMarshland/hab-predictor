@@ -3,6 +3,7 @@ name = "predictor"
 version = "0.1.0"
 dependencies = [
  "chrono 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "gcc 0.3.47 (git+https://github.com/alexcrichton/gcc-rs)",
  "helix 0.6.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "lazy_static 0.2.8 (registry+https://github.com/rust-lang/crates.io-index)",
  "libc 0.2.22 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -34,6 +35,11 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 name = "dtoa"
 version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
+
+[[package]]
+name = "gcc"
+version = "0.3.47"
+source = "git+https://github.com/alexcrichton/gcc-rs#a84c5ee84e1a18091dd8c46b45912567fde9dbda"
 
 [[package]]
 name = "helix"
@@ -204,6 +210,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 "checksum cslice 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)" = "0f8cb7306107e4b10e64994de6d3274bd08996a7c1322a27b86482392f96be0a"
 "checksum cstr-macro 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)" = "db53fddba18cdd35477a7213a3ef6acfbfa333c31b42ce019e544c4a1420a06f"
 "checksum dtoa 0.4.1 (registry+https://github.com/rust-lang/crates.io-index)" = "80c8b71fd71146990a9742fc06dcbbde19161a267e0ad4e572c35162f4578c90"
+"checksum gcc 0.3.47 (git+https://github.com/alexcrichton/gcc-rs)" = "<none>"
 "checksum helix 0.6.1 (registry+https://github.com/rust-lang/crates.io-index)" = "b97612e592273062bb127433a22b201c9b58375c95fc7ace355ee2fc6be61ebe"
 "checksum itoa 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)" = "eb2f404fbc66fd9aac13e998248505e7ecb2ad8e44ab6388684c5fb11c6c251c"
 "checksum kernel32-sys 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)" = "7507624b29483431c0ba2d82aece8ca6cdba9382bff4ddd0f7490560c056098d"
