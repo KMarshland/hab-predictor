@@ -1,5 +1,6 @@
 use std::io::prelude::*;
 use std::fs::File;
+use std::process::Command;
 use chrono::prelude::*;
 use predictor::point::*;
 
@@ -8,6 +9,7 @@ struct UnprocessedGribReader {
 }
 
 struct ProcessingGribReader {
+    path: String,
     file: File,
     bytes_read: u64
 }
@@ -57,7 +59,8 @@ impl UnprocessedGribReader {
 
         let mut reader = ProcessingGribReader {
             bytes_read: 0,
-            file: file
+            file: file,
+            path: self.get_path().to_string()
         };
 
         let result = reader.read();
@@ -101,8 +104,6 @@ impl ProcessingGribReader {
         if edition != 2 {
             return Result::Err(String::from("Incorrect edition (expected version 2)"))
         }
-
-        println!("File is Edition {}", edition);
 
         // 9-16. Total length of GRIB message in octets (All sections)
         self.read_as_u64(8);
@@ -216,15 +217,16 @@ impl ProcessingGribReader {
     }
 
     fn convert(&mut self){
-        let levels = [0, 1, 2, 3, 5, 7, 10, 20, 30, 50, 70, 100, 150, 200, 250, 300, 350, 400, 450, 500, 550, 600, 650, 700, 750, 800, 850, 900, 925, 950, 975, 1000];
+        let command = "ruby lib/grib/convert.rb ".to_string() + self.path.as_str();
+        println!("{}", command);
 
-        for level in levels.iter() {
-            self.convert_level(*level as u32);
-        }
-    }
+        let result = Command::new("sh")
+            .arg("-c")
+            .arg(command)
+            .output()
+            .expect("failed to execute process");
 
-    fn convert_level(&mut self, level : u32){
-
+        println!("{}", String::from_utf8(result.stdout).unwrap());
     }
 
     fn get_file(&mut self) -> &mut File {

@@ -39,7 +39,7 @@ impl UninitializedDataSetReader {
                                 best_dir = Some(dir);
                             }
                         }
-                        Err(why) => println!("Warning: junk file/folder in lib/data: {}", name),
+                        Err(_) => println!("Warning: junk file/folder in lib/data: {}", name),
                     }
                 }
 
@@ -91,9 +91,15 @@ impl UninitializedDataSetReader {
 
                 let mut readers : Vec<Box<GribReader>> = vec![];
                 for file in bucket {
-                    println!("{}", file.path().display());
+                    let path = file.path();
 
-                    readers.push(Box::new(GribReader::new(file.path().to_str().unwrap().to_string())));
+                    let extension = path.extension().unwrap().to_str().unwrap();
+
+                    if extension == "grb2" {
+                        println!("{}, extension {}", path.display(), extension);
+
+                        readers.push(Box::new(GribReader::new(path.to_str().unwrap().to_string())));
+                    }
                 }
 
                 // TODO: enforce reader sort order
