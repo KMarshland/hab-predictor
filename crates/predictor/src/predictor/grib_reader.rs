@@ -26,8 +26,6 @@ enum ReferenceTime {
     Invalid
 }
 
-#[link(name="grib", kind="static")]
-extern {  }
 
 impl GribReader {
 
