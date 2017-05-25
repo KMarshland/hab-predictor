@@ -39,7 +39,7 @@ impl UninitializedDataSetReader {
                                 best_dir = Some(dir);
                             }
                         }
-                        Err(why) => println!("Warning: junk file/folder in lib/data: {}", name),
+                        Err(_) => println!("Warning: junk file/folder in lib/data: {}", name),
                     }
                 }
 
