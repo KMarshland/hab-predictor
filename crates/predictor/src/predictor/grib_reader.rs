@@ -39,7 +39,21 @@ impl GribReader {
     }
 
     pub fn velocity_at(&self, point: &Point) -> Velocity {
-        // TODO: Implement this
+        let isobaric_hpa = 1013.25*(1.0 - point.altitude/44330.0).powf(5.255);
+
+        //TODO: make a fast lookup structure for this
+        let levels = [2, 3, 5, 7, 10, 20, 30, 50, 70, 100, 150, 200, 250, 300, 350, 400, 450, 500, 550, 600, 650, 700, 750, 800, 850, 900, 925, 950, 975, 1000];
+        let mut best_level : i32 = 1;
+        let mut best_level_diff : f32 = (isobaric_hpa - (best_level as f32)).abs();
+
+        for level_ref in levels.iter() {
+            let level = *level_ref as i32;
+            let diff = (isobaric_hpa - (level as f32)).abs();
+
+            if diff < best_level_diff {
+                best_level = level;
+            }
+        }
 
         Velocity {
             north: 1.0,
@@ -226,7 +240,8 @@ impl ProcessingGribReader {
             .output()
             .expect("failed to execute process");
 
-        println!("{}", String::from_utf8(result.stdout).unwrap());
+        println!("STDOUT: {}", String::from_utf8(result.stdout).unwrap());
+        println!("STDERR: {}", String::from_utf8(result.stderr).unwrap());
     }
 
     fn get_file(&mut self) -> &mut File {

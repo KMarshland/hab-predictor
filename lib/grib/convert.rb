@@ -25,7 +25,7 @@ end
 true_start = Time.now
 
 # Note: multithreading this does not help as it must do IO on the same input files
-levels.each.reverse do |level|
+levels.reverse_each do |level|
   start = Time.now
   convert_level(path, level)
   puts "Converted #{level} (#{(Time.now - start).round(2)}s)"

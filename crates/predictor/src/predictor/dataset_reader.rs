@@ -98,6 +98,7 @@ impl UninitializedDataSetReader {
                     if extension == "grb2" {
                         println!("{}, extension {}", path.display(), extension);
 
+                        // TODO: multithread this asshole
                         readers.push(Box::new(GribReader::new(path.to_str().unwrap().to_string())));
                     }
                 }
