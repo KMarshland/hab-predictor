@@ -1,6 +1,7 @@
 use std::sync::Mutex;
 use std::fs;
 use std::env;
+use std::collections::HashMap;
 use std::fs::DirEntry;
 use predictor::point::*;
 use predictor::grib_reader::*;
@@ -10,7 +11,7 @@ struct UninitializedDataSetReader {
 }
 
 struct DataSetReader {
-    grib_readers: Vec<Box<GribReader>>
+    grib_readers: HashMap<i32, Box<GribReader>>
 }
 
 impl UninitializedDataSetReader {
@@ -89,11 +90,20 @@ impl UninitializedDataSetReader {
                     }
                 };
 
-                let mut readers : Vec<Box<GribReader>> = vec![];
+                let mut readers : HashMap<i32, Box<GribReader>> = HashMap::new();
+                let mut last_hour = 0;
                 for file in bucket {
                     println!("{}", file.path().display());
 
-                    readers.push(Box::new(GribReader::new(file.path().to_str().unwrap().to_string())));
+                    let name = file.file_name().into_string().unwrap();
+                    let hour = (name.split("_").collect::<Vec<&str>>()[4][0..3].parse::<i32>().unwrap())+1;
+
+                    for hr in last_hour..hour {
+                        let reader = Box::new(GribReader::new(file.path().to_str().unwrap().to_string()));
+                        readers.insert(hr, reader);
+                    }
+
+                    last_hour = hour;
                 }
 
                 // TODO: enforce reader sort order
@@ -125,19 +135,16 @@ impl DataSetReader {
     fn get_reader(&mut self, point: &Point) -> &Box<GribReader> {
         // TODO: implement a binary search tree or alternative fast lookup
 
-        let mut best_reader = &self.grib_readers[0];
+        let first_reader = &self.grib_readers[&0i32];
+        // Number of hours since the start of the data
+        let num_hours = (((first_reader.time.signed_duration_since(point.time).num_minutes().abs()) as f64)/60.0).round() as i32;
 
-        for i in 1..self.grib_readers.len() {
-            let reader = &self.grib_readers[i];
-            let abs_seconds = reader.time.signed_duration_since(point.time).num_seconds().abs();
-            let best_seconds = best_reader.time.signed_duration_since(point.time).num_seconds().abs();
+        let best_reader = &self.grib_readers.get(&num_hours);
 
-            if abs_seconds < best_seconds {
-                best_reader = reader;
-            }
+        match best_reader {
+            &Some(reader) => return reader,
+            _ => panic!("Error: Inputted time outside available time range for data"),
         }
-
-        best_reader
     }
 }
 
