@@ -103,12 +103,12 @@ impl UninitializedDataSetReader {
 
                     for hr in (last_hour as i32)..divider {
                         let reader = Box::new(GribReader::new(last_file.path().to_str().unwrap().to_string()));
-                        readers[hr as usize] = reader;
+                        readers.insert((hr as usize), reader);
                     }
 
                     for hr in divider..(hour as i32) {
                         let reader = Box::new(GribReader::new(file.path().to_str().unwrap().to_string()));
-                        readers[hr as usize] = reader;
+                        readers.insert((hr as usize), reader);
                     }
 
                     last_hour = hour;
