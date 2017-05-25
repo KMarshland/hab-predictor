@@ -63,6 +63,7 @@ impl GribReader {
 
             if diff < best_level_diff {
                 best_level = level;
+                best_level_diff = diff;
             }
         }
 
@@ -82,13 +83,32 @@ impl GribReader {
         let mut u : f32 = 0.0;
         let mut v : f32 = 0.0;
 
-        let has_u = false;
-        let has_v = false;
+        let mut has_u = false;
+        let mut has_v = false;
 
         let mut reader = BufReader::new(&file);
 
         loop {
             match GribReader::read_line(&mut reader) {
+                Some(line) => {
+                    if (line.lat - lat).abs() < 0.25 && (line.lon - lon).abs() < 0.25 {
+                        match line.key.as_ref() {
+                            "u" => {
+                                u = line.value;
+                                has_u = true;
+                            },
+                            "v" => {
+                                v = line.value;
+                                has_v = true;
+                            },
+                            _ => {}
+                        };
+
+                        if has_u && has_v {
+                            break;
+                        }
+                    }
+                }
                 _ => {
                     break;
                 }
