@@ -10,7 +10,7 @@ namespace :prediction do
   end
 
   task :test => [:environment] do
-    puts JSON.pretty_generate(Predictor.predict(
+    JSON.pretty_generate(Predictor.predict(
         lat: 36.8491253,
         lon: -121.4342394,
         altitude: 0,

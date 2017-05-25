@@ -25,7 +25,9 @@ pub struct GribReader {
     pub time: DateTime<UTC>,
 
     list_interpretation: Section3Interpretation,
-    grid_definition: LatLonGridDefinition
+    grid_definition: GridDefinition,
+
+    data_representation_template: DataRepresentationTemplate
 }
 
 enum ReferenceTime {
@@ -42,6 +44,15 @@ enum Section3Interpretation {
     ParallelCount,
     ExtremaCount,
     Latitudes,
+    Invalid
+}
+
+enum GridDefinition {
+    LatLon(LatLonGridDefinition)
+}
+
+enum DataRepresentationTemplate {
+    ComplexPackingAndSpacialDifferencing(ComplexPackingAndSpacialDifferencing),
     Invalid
 }
 
@@ -77,6 +88,52 @@ struct LatLonGridDefinition {
     delta_j: u64,
 
     scanning_mode: u64
+}
+
+struct ComplexPackingAndSpacialDifferencing {
+    reference_value: f32,
+    binary_scale_factor: u64,
+    decimal_scale_factor: u64,
+
+    number_of_bits: u64,
+
+    original_field_value_type: OriginalFieldValueType,
+    group_splitting_method: GroupSplittingMethod,
+
+    missing_value_management: MissingValueManagement,
+    primary_missing_value_substitute: OriginalFieldValueType,
+    secondary_missing_value_substitute: OriginalFieldValueType,
+
+    ng: u64,
+    group_width_reference: u64,
+    bits_for_group_width: u64,
+
+    group_length_reference: u64,
+    length_increment: u64,
+    true_length_of_last_group: u64,
+
+    bits_for_scaled_group_length: u64,
+    spatial_difference_order: u64,
+    octets_required_for_extra_data: u64
+}
+
+enum OriginalFieldValueType {
+    Float(f32),
+    Integer(i32),
+    Invalid
+}
+
+enum GroupSplittingMethod {
+    RowByRow,
+    GeneralGroup,
+    Invalid
+}
+
+enum MissingValueManagement {
+    None,
+    PrimaryIncluded,
+    PrimaryAndSecondaryIncluded,
+    Invalid
 }
 
 
@@ -161,7 +218,7 @@ impl ProcessingGribReader {
         println!("File is Edition {}", edition);
 
         // 9-16. Total length of GRIB message in octets (All sections)
-        let total_length = self.read_as_number(8);
+        let total_length = self.read_as_u64(8);
 
 
         /*
@@ -169,14 +226,14 @@ impl ProcessingGribReader {
          */
 
         // 1-4. Length of the section in octets (21 or N)
-        let section_1_length = self.read_as_number(4);
+        let section_1_length = self.read_as_u64(4);
         if section_1_length < 21 {
             return Result::Err(String::from("Section 1 too short (length: ".to_string() +
                 section_1_length.to_string().as_str() + ")"))
         }
 
         // 5. Number of the section (1)
-        let section_1_number = self.read_as_number(1);
+        let section_1_number = self.read_as_u64(1);
         if section_1_number != 1 {
             return Result::Err(String::from("Incorrect section number (expected 1)"))
         }
@@ -188,7 +245,7 @@ impl ProcessingGribReader {
         self.read_n(2);
 
         // 10. GRIB master tables version number (currently 2)
-        let table_version_number = self.read_as_number(1);
+        let table_version_number = self.read_as_u64(1);
         if table_version_number != 2 {
             return Result::Err(String::from("Incorrect GRIB master tables version (expected 2, got ".to_string() +
                 table_version_number.to_string().as_str() + ")"));
@@ -198,7 +255,7 @@ impl ProcessingGribReader {
         self.read_n(1);
 
         // 12. Significance of reference time
-        let reference_time = match self.read_as_number(1) {
+        let reference_time = match self.read_as_u64(1) {
             0 => ReferenceTime::Analysis,
             1 => ReferenceTime::StartOfForecast,
             2 => ReferenceTime::VerifyingTimeOfForecast,
@@ -207,22 +264,22 @@ impl ProcessingGribReader {
         };
 
         // 13-14. Year (4 digits)
-        let year = self.read_as_number(2);
+        let year = self.read_as_u64(2);
 
         // 15. Month
-        let month = self.read_as_number(1);
+        let month = self.read_as_u64(1);
 
         // 16. Day
-        let day = self.read_as_number(1);
+        let day = self.read_as_u64(1);
 
         // 17. Hour
-        let hour = self.read_as_number(1);
+        let hour = self.read_as_u64(1);
 
         // 18. Minute
-        let minute = self.read_as_number(1);
+        let minute = self.read_as_u64(1);
 
         // 19. Second
-        let second = self.read_as_number(1);
+        let second = self.read_as_u64(1);
 
         // 20. Production Status of Processed data in the GRIB message (See Table 1.3)
         self.read_n(1);
@@ -240,14 +297,14 @@ impl ProcessingGribReader {
 
         if self.section_2_present {
             // 1-4. Length of the section in octets (N)
-            let section_2_length = self.read_as_number(4);
+            let section_2_length = self.read_as_u64(4);
             if section_2_length < 5 {
                 return Result::Err(String::from("Section 2 too short (length: ".to_string() +
                     section_2_length.to_string().as_str() + ")"))
             }
 
             // 5. Number of the section (2)
-            let section_2_number = self.read_as_number(1);
+            let section_2_number = self.read_as_u64(1);
             if section_2_number != 2 {
                 return Result::Err(String::from("Incorrect section number (expected 2, got ".to_string() +
                     section_2_number.to_string().as_str() + ")"))
@@ -264,36 +321,36 @@ impl ProcessingGribReader {
         let section_3_bytes_read = self.bytes_read;
 
         // 1-4. Length of the section in octets (N)
-        let section_3_length = self.read_as_number(4);
+        let section_3_length = self.read_as_u64(4);
         if section_3_length < 15 {
             return Result::Err(String::from("Section 3 too short (length: ".to_string() +
                 section_3_length.to_string().as_str() + ")"))
         }
 
         // 5. Number of the section (3)
-        let section_3_number = self.read_as_number(1);
+        let section_3_number = self.read_as_u64(1);
         if section_3_number != 3 {
             return Result::Err(String::from("Incorrect section number (expected 3, got ".to_string() +
                 section_3_number.to_string().as_str() + ")"))
         }
 
         // 6. Source of grid definition (See Table 3.0) (See note 1 below)
-        let grid_definition_source = self.read_as_number(1);
+        let grid_definition_source = self.read_as_u64(1);
         if grid_definition_source != 0 {
             return Result::Err(String::from("Can only parse standard grid definition (source error)"));
         }
 
         // 7-10. Number of data points
-        let datapoint_count = self.read_as_number(4);
+        let datapoint_count = self.read_as_u64(4);
 
         // 11. Number of octets for optional list of numbers defining number of points (See note 2 below)
-        let optional_octet_count = self.read_as_number(1);
+        let optional_octet_count = self.read_as_u64(1);
         if optional_octet_count != 0 {
             return Result::Err(String::from("Can only parse standard grid definition (octet count error)"));
         }
 
         // 12. Interpetation of list of numbers defining number of points (See Table 3.11)
-        let list_interpretation = match self.read_as_number(1) {
+        let list_interpretation = match self.read_as_u64(1) {
             0 => Section3Interpretation::None,
             1 => Section3Interpretation::ParallelCount,
             2 => Section3Interpretation::ExtremaCount,
@@ -302,69 +359,69 @@ impl ProcessingGribReader {
         };
 
         // 13-14. Grid definition template number (= N) (See Table 3.1)
-        let grid_definition_number = self.read_as_number(2);
+        let grid_definition_number = self.read_as_u64(2);
 
         // 15-xx. Grid definition template (See Template 3.N, where N is the grid definition template number given in octets 13-14)
-        let grid_definition : LatLonGridDefinition=  match grid_definition_number{
+        let grid_definition : GridDefinition =  match grid_definition_number{
             0 => {
                 // 15. Shape of the Earth (See Code Table 3.2)
-                let earth_shape = self.read_as_number(1);
+                let earth_shape = self.read_as_u64(1);
 
                 // 16. Scale Factor of radius of spherical Earth
-                let radius_scale_factor = self.read_as_number(1);
+                let radius_scale_factor = self.read_as_u64(1);
 
                 // 17-20. Scale value of radius of spherical Earth
-                let radius_scale_value = self.read_as_number(4);
+                let radius_scale_value = self.read_as_u64(4);
 
                 // 21. Scale factor of major axis of oblate spheroid Earth
-                let major_axis_scale_factor = self.read_as_number(1);
+                let major_axis_scale_factor = self.read_as_u64(1);
 
                 // 22-25. Scaled value of major axis of oblate spheroid Earth
-                let major_axis_scale_value = self.read_as_number(4);
+                let major_axis_scale_value = self.read_as_u64(4);
 
                 // 26. Scale factor of minor axis of oblate spheroid Earth
-                let minor_axis_scale_factor = self.read_as_number(1);
+                let minor_axis_scale_factor = self.read_as_u64(1);
 
                 // 27-30. Scaled value of minor axis of oblate spheroid Earth
-                let minor_axis_scale_value = self.read_as_number(4);
+                let minor_axis_scale_value = self.read_as_u64(4);
 
                 // 31-34. Ni—number of points along a parallel
-                let points_along_parallel = self.read_as_number(4);
+                let points_along_parallel = self.read_as_u64(4);
 
                 // 35-38. Nj—number of points along a meridian
-                let points_along_meridian = self.read_as_number(4);
+                let points_along_meridian = self.read_as_u64(4);
 
                 // 39-42. Basic angle of the initial production domain (see Note 1)
-                let basic_angle = self.read_as_number(4);
+                let basic_angle = self.read_as_u64(4);
 
                 // 43-46. Subdivisions of basic angle used to define extreme longitudes and latitudes, and direction increments (see Note 1)
-                let basic_angle_subdivision = self.read_as_number(4);
+                let basic_angle_subdivision = self.read_as_u64(4);
 
                 // 47-50. La1—latitude of first grid point (see Note 1)
-                let first_lat = self.read_as_number(4);
+                let first_lat = self.read_as_u64(4);
 
                 // 51-54. Lo1—longitude of first grid point (see Note 1)
-                let first_lon = self.read_as_number(4);
+                let first_lon = self.read_as_u64(4);
 
                 // 55. Resolution and component flags (see Flag Table 3.3)
-                let resolution_flags = self.read_as_number(1);
+                let resolution_flags = self.read_as_u64(1);
 
                 // 56-59. La2—latitude of last grid point (see Note 1)
-                let last_lat = self.read_as_number(4);
+                let last_lat = self.read_as_u64(4);
 
                 // 60-63. Lo2—longitude of last grid point (see Note 1)
-                let last_lon = self.read_as_number(4);
+                let last_lon = self.read_as_u64(4);
 
                 // 64-67. Di—i direction increment (see Notes 1 and 5)
-                let delta_i = self.read_as_number(4);
+                let delta_i = self.read_as_u64(4);
 
                 // 68-71. Dj—j direction increment (see Note 1 and 5)
-                let delta_j = self.read_as_number(4);
+                let delta_j = self.read_as_u64(4);
 
                 // 72. Scanning mode (flags — see Flag Table 3.4 and Note 6)
-                let scanning_mode = self.read_as_number(1);
+                let scanning_mode = self.read_as_u64(1);
 
-                LatLonGridDefinition {
+                GridDefinition::LatLon(LatLonGridDefinition {
                     earth_model: earth_shape,
 
                     radius_scale_factor: radius_scale_factor,
@@ -394,7 +451,7 @@ impl ProcessingGribReader {
                     delta_j: delta_j,
 
                     scanning_mode: scanning_mode
-                }
+                })
             },
             _ => {
                 return Result::Err(String::from("Can only parse standard grid definition (grid definition error)"));
@@ -408,19 +465,20 @@ impl ProcessingGribReader {
         // [xx+1]-nn. Optional list of numbers defining number of points (See notes 2, 3, and 4 below)
         self.read_n(section_3_length - section_3_length_read);
 
+
         /*
          * SECTION 4: PRODUCT DEFINITION SECTION
          */
 
         // 1-4. Length of the section in octets (nn)
-        let section_4_length = self.read_as_number(4);
+        let section_4_length = self.read_as_u64(4);
         if section_4_length < 9 {
             return Result::Err(String::from("Section 4 too short (length: ".to_string() +
                 section_4_length.to_string().as_str() + ")"))
         }
 
         // 5. Number of the section (4)
-        let section_4_number = self.read_as_number(1);
+        let section_4_number = self.read_as_u64(1);
         if section_4_number != 4 {
             return Result::Err(String::from("Incorrect section number (expected 4, got ".to_string() +
                 section_4_number.to_string().as_str() + ")"))
@@ -436,6 +494,41 @@ impl ProcessingGribReader {
          */
         self.read_n(section_4_length - 5);
 
+
+        /*
+         * SECTION 5: DATA REPRESENTATION SECTION
+         */
+
+        // 1-4. Length of the section in octets (nn)
+        let section_5_length = self.read_as_u64(4);
+        if section_5_length < 12 {
+            return Result::Err(String::from("Section 5 too short (length: ".to_string() +
+                section_5_length.to_string().as_str() + ")"))
+        }
+
+        // 5. Number of the section (5)
+        let section_5_number = self.read_as_u64(1);
+        if section_5_number != 5 {
+            return Result::Err(String::from("Incorrect section number (expected 5, got ".to_string() +
+                section_5_number.to_string().as_str() + ")"))
+        }
+
+        // 6-9. Number of data points where one or more values are specified in Section 7 when a bit map is present, total number of data points when a bit map is absent.
+        let bitmap_datapoints = self.read_as_u64(4);
+
+        // 10-11. Data representation template number (See Table 5.0)
+        let template_number = self.read_as_u64(2);
+
+        // 12-nn. Data representation template (See Template 5.X, where X is the number given in octets 10-11)
+        let data_representation_template : DataRepresentationTemplate = match template_number {
+            3 => {
+
+            },
+            _ => {
+                return Result::Err(String::from("Can only parse complex packing a spacial differencing (grid definition error)"));
+            }
+        };
+
         Ok(GribReader {
             edition: edition,
             total_length: total_length,
@@ -444,7 +537,9 @@ impl ProcessingGribReader {
             time: UTC.ymd(year as i32, month as u32, day as u32).and_hms(hour as u32, minute as u32, second as u32),
 
             list_interpretation: list_interpretation,
-            grid_definition: grid_definition
+            grid_definition: grid_definition,
+
+            data_representation_template: data_representation_template
         })
     }
 
@@ -469,7 +564,23 @@ impl ProcessingGribReader {
         buf
     }
 
-    fn read_as_number(&mut self, number_of_bytes : u64) -> u64 {
+    fn read_as_u64(&mut self, number_of_bytes : u64) -> u64 {
+        if number_of_bytes <= 0 {
+            return 0;
+        }
+
+        let buf = self.read_n(number_of_bytes);
+
+        let mut number : u64 = 0;
+        for i in 0..number_of_bytes {
+            // TODO: these casts spook me
+            number += (buf[i as usize] as u64) << (8 * (number_of_bytes - i - 1));
+        }
+
+        number
+    }
+
+    fn read_as_float(&mut self, number_of_bytes : u64) -> u64 {
         if number_of_bytes <= 0 {
             return 0;
         }
