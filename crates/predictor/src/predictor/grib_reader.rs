@@ -1,5 +1,6 @@
 use std::io::prelude::*;
 use std::fs::File;
+use std::mem;
 use chrono::prelude::*;
 use predictor::point::*;
 
@@ -92,10 +93,10 @@ struct LatLonGridDefinition {
 
 struct ComplexPackingAndSpacialDifferencing {
     reference_value: f32,
-    binary_scale_factor: u64,
-    decimal_scale_factor: u64,
+    binary_scale_factor: u16,
+    decimal_scale_factor: u16,
 
-    number_of_bits: u64,
+    number_of_bits: u8,
 
     original_field_value_type: OriginalFieldValueType,
     group_splitting_method: GroupSplittingMethod,
@@ -118,8 +119,8 @@ struct ComplexPackingAndSpacialDifferencing {
 }
 
 enum OriginalFieldValueType {
-    Float(f32),
-    Integer(i32),
+    Float(Option<f32>),
+    Integer(Option<u32>),
     Invalid
 }
 
@@ -522,7 +523,133 @@ impl ProcessingGribReader {
         // 12-nn. Data representation template (See Template 5.X, where X is the number given in octets 10-11)
         let data_representation_template : DataRepresentationTemplate = match template_number {
             3 => {
+                // 12-15. reference value (R) (IEEE 32-bit floating-point value)
+                let reference_value = self.read_float();
 
+                // 16-17. Binary scale factor (E)
+                let binary_scale_factor = self.read_u16();
+
+                // 18-19. Decimal scale factor (D)
+                let decimal_scale_factor = self.read_u16();
+
+                // 20. Number of bits used for each packed value for simple packing, or for each group reference value for complex packing or spatial differencing
+                let number_of_bits = self.read_u8();
+
+                // 21. Type of original field values (see Code Table 5.1)
+                let original_field_value_type = match self.read_u8() {
+                    0 => {
+                        OriginalFieldValueType::Float(None)
+                    },
+                    1 => {
+                        OriginalFieldValueType::Integer(None)
+                    },
+                    _ => {
+                        OriginalFieldValueType::Invalid
+                    }
+                };
+
+                // 22. Group splitting method used (see Code Table 5.4)
+                let group_splitting_method = match self.read_u8() {
+                    0 => {
+                        GroupSplittingMethod::RowByRow
+                    },
+                    1 => {
+                        GroupSplittingMethod::GeneralGroup
+                    }
+                    _ => {
+                        GroupSplittingMethod::Invalid
+                    }
+                };
+
+                // 23. Missing value management used (see Code Table 5.5)
+                let missing_value_management = match self.read_u8() {
+                    0 => {
+                        MissingValueManagement::None
+                    },
+                    1 => {
+                        MissingValueManagement::PrimaryIncluded
+                    },
+                    2 => {
+                        MissingValueManagement::PrimaryAndSecondaryIncluded
+                    },
+                    _ => {
+                        MissingValueManagement::Invalid
+                    }
+                };
+
+                // 24-27. Primary missing value substitute
+                let primary_missing_value_substitute = match original_field_value_type {
+                    OriginalFieldValueType::Float(_) => {
+                        OriginalFieldValueType::Float(Some(self.read_float()))
+                    },
+                    OriginalFieldValueType::Integer(_) => {
+                        OriginalFieldValueType::Integer(Some(self.read_u32()))
+                    },
+                    _ => {
+                        OriginalFieldValueType::Invalid
+                    }
+                };
+
+                // 28-31. Secondary missing value substitute
+                let secondary_missing_value_substitute = match original_field_value_type {
+                    OriginalFieldValueType::Float(_) => {
+                        OriginalFieldValueType::Float(Some(self.read_float()))
+                    },
+                    OriginalFieldValueType::Integer(_) => {
+                        OriginalFieldValueType::Integer(Some(self.read_u32()))
+                    },
+                    _ => {
+                        OriginalFieldValueType::Invalid
+                    }
+                };
+
+                // 32-35. NG ― number of groups of data values into which field is split
+                let ng = self.read_as_u64(4);
+
+                // 36. Reference for group widths (see Note 12)
+                let group_width_reference = self.read_as_u64(1);
+
+                // 37. Number of bits used for the group widths (after the reference value in octet 36 has been removed)
+                let bits_for_group_width = self.read_as_u64(1);
+
+                // 38-41. Reference for group lengths (see Note 13)
+                let group_length_reference = self.read_as_u64(4);
+
+                // 42. Length increment for the group lengths (see Note 14)
+                let length_increment = self.read_as_u64(1);
+
+                // 43-46. True length of last group
+                let true_length_of_last_group = self.read_as_u64(4);
+
+                // 47. Number of bits used for the scaled group lengths (after subtraction of the reference value given in octets 38-41 and division by the length increment given in octet 42)
+                let bits_for_scaled_group_length = self.read_as_u64(1);
+
+                // 48. Order of spatial difference (see Code Table 5.6)
+                let spatial_difference_order = self.read_as_u64(1);
+
+                // 49. Number of octets required in the data section to specify extra descriptors needed for spatial differencing (octets 6-ww in data template 7.3)
+                let octets_required_for_extra_data = self.read_as_u64(1);
+
+                DataRepresentationTemplate::ComplexPackingAndSpacialDifferencing(ComplexPackingAndSpacialDifferencing {
+                    reference_value: reference_value,
+                    binary_scale_factor: binary_scale_factor,
+                    decimal_scale_factor: decimal_scale_factor,
+                    number_of_bits: number_of_bits,
+                    original_field_value_type: original_field_value_type,
+                    group_splitting_method: group_splitting_method,
+                    missing_value_management: missing_value_management,
+                    primary_missing_value_substitute: primary_missing_value_substitute,
+                    secondary_missing_value_substitute: secondary_missing_value_substitute,
+                    ng: ng,
+                    group_width_reference: group_width_reference,
+                    bits_for_group_width: bits_for_group_width,
+                    group_length_reference: group_length_reference,
+                    length_increment: length_increment,
+                    true_length_of_last_group: true_length_of_last_group,
+                    bits_for_scaled_group_length: bits_for_scaled_group_length,
+                    spatial_difference_order: spatial_difference_order,
+                    octets_required_for_extra_data: octets_required_for_extra_data
+                })
             },
             _ => {
                 return Result::Err(String::from("Can only parse complex packing a spacial differencing (grid definition error)"));
@@ -580,20 +707,23 @@ impl ProcessingGribReader {
         number
     }
 
-    fn read_as_float(&mut self, number_of_bytes : u64) -> u64 {
-        if number_of_bytes <= 0 {
-            return 0;
-        }
+    fn read_u32(&mut self) -> u32 {
+        self.read_as_u64(4) as u32
+    }
 
-        let buf = self.read_n(number_of_bytes);
+    fn read_u16(&mut self) -> u16 {
+        self.read_as_u64(1) as u16
+    }
 
-        let mut number : u64 = 0;
-        for i in 0..number_of_bytes {
-            // TODO: these casts spook me
-            number += (buf[i as usize] as u64) << (8 * (number_of_bytes - i - 1));
-        }
+    fn read_u8(&mut self) -> u8 {
+        self.read_as_u64(1) as u8
+    }
 
-        number
+    // parses IEEE 754 format
+    fn read_float(&mut self) -> f32 {
+        let bits = self.read_u32();
+
+        unsafe {mem::transmute(bits)}
     }
 
     fn get_file(&mut self) -> &mut File {
