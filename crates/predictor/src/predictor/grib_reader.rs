@@ -1,9 +1,11 @@
 use std::io::prelude::*;
 use std::fs::File;
-use std::process::Command;
 use std::mem;
 use chrono::prelude::*;
 use predictor::point::*;
+
+const CELL_SIZE : f32 = 25.0; // Make sure this matches the grid size in grib_convert.rb
+const DATA_RESOLUTION : f32 = 0.5;
 
 struct UnprocessedGribReader {
     path: String
@@ -66,12 +68,19 @@ impl GribReader {
             }
         }
 
-        let lat = (2.0*point.latitude).round() / 2.0;
-        let lon = (2.0*point.longitude).round()/2.0 + 180.0;
+        // Round to nearest DATA_RESOLUTION
+        let lat = (point.latitude / DATA_RESOLUTION).round() * DATA_RESOLUTION;
+        let lon = (point.longitude / DATA_RESOLUTION).round() * DATA_RESOLUTION + 180.0;
+
+        let grid_lat = (point.latitude / CELL_SIZE).floor() * CELL_SIZE;
+        let grid_lon = ((point.longitude + 180.0) / CELL_SIZE).floor() * CELL_SIZE;
 
         let proper_filename = {
             let mut parts = self.path.split('.');
-            parts.next().unwrap().to_string() + "_l" + best_level.to_string().as_str() + ".gribp"
+            parts.next().unwrap().to_string() +
+                "/L" + best_level.to_string().as_str() +
+                "/C" + grid_lat.to_string().as_str() + "_" + grid_lon.to_string().as_str() +
+                ".gribp"
         };
 
         GribReader::scan_file(proper_filename, lat, lon)
@@ -86,6 +95,7 @@ impl GribReader {
 
         let mut has_u = false;
         let mut has_v = false;
+
 
         loop {
             match GribReader::read_line(&mut file) {
@@ -170,8 +180,6 @@ impl GribReader {
 impl UnprocessedGribReader {
 
     fn read(&mut self) -> Result<GribReader, String> {
-        println!("Trying to read from {}", self.get_path());
-
         let file = File::open(self.get_path()).unwrap();
 
         let mut reader = ProcessingGribReader {
@@ -288,8 +296,6 @@ impl ProcessingGribReader {
 
         let time = UTC.ymd(year as i32, month as u32, day as u32).and_hms(hour as u32, minute as u32, second as u32);
 
-        self.convert();
-
         Ok(GribReader {
             reference_time: reference_time,
             time: time,
@@ -326,20 +332,6 @@ impl ProcessingGribReader {
         let buf = self.read_n(number_of_bytes);
 
         bytes_to_u64(buf, number_of_bytes)
-    }
-
-    fn convert(&mut self){
-        let command = "ruby lib/grib/convert.rb ".to_string() + self.path.as_str();
-        println!("{}", command);
-
-        let result = Command::new("sh")
-            .arg("-c")
-            .arg(command)
-            .output()
-            .expect("failed to execute process");
-
-        //        println!("{}", String::from_utf8(result.stdout).unwrap());
-        println!("{}", String::from_utf8(result.stderr).unwrap());
     }
 
     fn get_file(&mut self) -> &mut File {

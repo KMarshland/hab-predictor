@@ -42,7 +42,9 @@ impl UninitializedDataSetReader {
                                 best_dir = Some(dir);
                             }
                         }
-                        Err(_) => println!("Warning: junk file/folder in lib/data: {}", name),
+                        Err(_) => {
+                            //                            println!("Warning: junk file/folder in lib/data: {}", name)
+                        },
                     }
                 }
 
@@ -58,6 +60,27 @@ impl UninitializedDataSetReader {
                 let files = fs::read_dir(best_dir.unwrap().path()).unwrap();
                 for path in files {
                     let file = path.unwrap();
+                    let undone_path = file.path();
+
+                    // nested matching makes me want to die. We should refactor
+                    match undone_path.extension() {
+                        Some(ext) => {
+                            match ext.to_str() {
+                                Some(extension) => {
+                                    if extension != "grb2" {
+                                        continue
+                                    }
+                                }
+                                None => {
+                                    continue
+                                }
+                            }
+                        }
+                        None => {
+                            continue
+                        }
+                    }
+
                     let file_name = file.file_name();
                     let name = file_name.to_str().unwrap();
 
