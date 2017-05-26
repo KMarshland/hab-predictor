@@ -1,0 +1,8 @@
+version: '2'
+
+services:
+  app:
+    build: .
+    command: ./deploy/boot.sh
+    ports:
+      - "80:5000"
