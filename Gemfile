@@ -8,8 +8,10 @@ end
 
 # Bundle edge Rails instead: gem 'rails', github: 'rails/rails'
 gem 'rails', '~> 5.0.2'
-# Use postgresql as the database for Active Record
-gem 'pg', '~> 0.18'
+
+# no db
+gem 'activerecord-nulldb-adapter'
+
 # Use Puma as the app server
 gem 'puma', '~> 3.0'
 # Use SCSS for stylesheets
@@ -39,6 +41,8 @@ gem 'foreman'
 gem 'sidekiq'
 
 gem 'colorize'
+
+gem 'rack-cors', :require => 'rack/cors'
 
 # Use Capistrano for deployment
 # gem 'capistrano-rails', group: :development

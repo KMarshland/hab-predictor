@@ -46,21 +46,21 @@ If successful, the API will respond with a 200 and a response of the following f
         "lat": "float",
         "lon": "float",
         "altitude": "float",
-        "time": "float: UNIX timestamp (seconds since epoch)",
+        "time": "ISO String",
       }
     ],
     "burst": {
       "lat": "float",
       "lon": "float",
       "altitude": "float",
-      "time": "float: UNIX timestamp (seconds since epoch)",
+      "time": "ISO String",
     },
     "descent": [
       {
         "lat": "float",
         "lon": "float",
         "altitude": "float",
-        "time": "float: UNIX timestamp (seconds since epoch)",
+        "time": "ISO String",
       }
     ],
     "float": [
@@ -68,7 +68,7 @@ If successful, the API will respond with a 200 and a response of the following f
         "lat": "float",
         "lon": "float",
         "altitude": "float",
-        "time": "float: UNIX timestamp (seconds since epoch)",
+        "time": "ISO String",
       }
     ]
   }
@@ -103,7 +103,7 @@ If successful, the API will respond with a 200 and a response of the following f
         "lat": "float",
         "lon": "float",
         "altitude": "float",
-        "time": "float: UNIX timestamp (seconds since epoch)"
+        "time": "ISO String"
     }
   ]
 }
