@@ -64,7 +64,7 @@ class DownloadWorker
       workers << Thread.new do
         begin
           while (file_url = datasets.pop(true)).present?
-            download_file file_url, dir, debug: true
+            download_file file_url, dir
 
             number_completed += 1
 
@@ -86,6 +86,8 @@ class DownloadWorker
     # logs!
     elapsed = (DateTime.now - start).to_f * 1.day
     puts "#{elapsed.round(2)}s to download #{url.split('/').last} (#{total} checked)".green
+
+    GribConvert::convert_folder dir
   end
 
   # downloads a specific dataset
@@ -97,7 +99,6 @@ class DownloadWorker
     filename = into.join(dataset_url.split('/').last)
     if File.exists?(filename) && File.size(filename) > 1.megabyte
       puts "    #{dataset_url.split('/').last} already exists" if debug
-      GribConvert::convert filename.to_s
       return
     end
 
@@ -118,8 +119,6 @@ class DownloadWorker
 
     elapsed = (DateTime.now - start).to_f * 1.day
     puts "#{elapsed.round(2)}s to download #{dataset_url.split('/').last}" if debug
-
-    GribConvert::convert filename.to_s
 
     elapsed
   end

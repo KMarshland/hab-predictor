@@ -2,6 +2,7 @@ use std::sync::Mutex;
 use std::fs;
 use std::env;
 use std::fs::DirEntry;
+use chrono::prelude::*;
 use predictor::point::*;
 use predictor::grib_reader::*;
 
@@ -18,6 +19,8 @@ impl UninitializedDataSetReader {
     fn initialize(&mut self) -> DataSetReader {
         DataSetReader {
             grib_readers: {
+                let start_time = UTC::now();
+
                 let folders = fs::read_dir(self.dataset_directory.as_str()).unwrap();
 
                 // figure out which data directory to read from
@@ -104,6 +107,8 @@ impl UninitializedDataSetReader {
                 }
 
                 // TODO: enforce reader sort order
+
+                println!("Readers initialized: {}ms", UTC::now().signed_duration_since(start_time).num_milliseconds());
 
                 readers
             }

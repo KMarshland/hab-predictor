@@ -1,3 +1,5 @@
+require 'fileutils'
+require Rails.root.join('lib', 'grib', 'grib_convert.rb')
 
 namespace :prediction do
 
@@ -7,6 +9,22 @@ namespace :prediction do
 
   task :download_sync => :environment do
     DownloadWorker.new.perform
+  end
+
+  task :reconvert => :environment do
+    # delete old versions
+    Dir.entries(Rails.root.join('lib', 'data', folder.to_s)).each do |dir|
+      if dir =~ /^gfs/ && File.directory?(Rails.root.join('lib', 'data', folder.to_s, dir))
+        FileUtils.rm_rf(Rails.root.join('lib', 'data', folder.to_s, dir))
+      end
+    end
+
+    # reconvert
+    GribConvert::convert_folder Rails.root.join('lib', 'data', folder.to_s).to_s
+  end
+
+  task :convert => :environment do
+    GribConvert::convert_folder Rails.root.join('lib', 'data', folder.to_s).to_s
   end
 
   task :test => [:environment] do
@@ -20,6 +38,12 @@ namespace :prediction do
         ascent_rate: 5,
         descent_rate: 5
     ))
+  end
+
+  def folder
+    Dir.entries(Rails.root.join('lib', 'data')).select { |n|
+      n =~ /^\d+$/
+    }.map(&:to_i).max
   end
 
 end

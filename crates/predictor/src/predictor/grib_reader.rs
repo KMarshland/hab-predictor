@@ -69,8 +69,6 @@ impl GribReader {
         let lat = (2.0*point.latitude).round() / 2.0;
         let lon = (2.0*point.longitude).round()/2.0 + 180.0;
 
-        println!("Raw longitude: {}", point.longitude);
-
         let proper_filename = {
             let mut parts = self.path.split('.');
             parts.next().unwrap().to_string() + "_l" + best_level.to_string().as_str() + ".gribp"
