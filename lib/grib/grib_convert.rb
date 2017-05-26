@@ -66,12 +66,22 @@ module GribConvert
       puts
     end
 
-    def convert_folder(dir)
+    def convert_folder(dir, serial:true)
+      threads = []
       Dir.entries(dir).each do |entry|
         next unless entry =~ /\.grb2/ # only try to parse grib files
 
-        convert "#{dir}/#{entry}"
+        if serial
+          convert "#{dir}/#{entry}"
+        else
+          threads << Thread.new do
+            convert "#{dir}/#{entry}"
+          end
+        end
+
       end
+
+      threads.map(&:join) unless serial
     end
   end
 end
