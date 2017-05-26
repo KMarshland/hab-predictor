@@ -44,6 +44,8 @@ gem 'colorize'
 
 gem 'rack-cors', :require => 'rack/cors'
 
+gem 'whenever', :require => false
+
 # Use Capistrano for deployment
 # gem 'capistrano-rails', group: :development
 
