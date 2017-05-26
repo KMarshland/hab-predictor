@@ -1,4 +1,5 @@
 require 'fileutils'
+require Rails.root.join('lib', 'grib', 'grib_convert.rb')
 
 class DownloadWorker
   include Sidekiq::Worker
@@ -63,14 +64,16 @@ class DownloadWorker
       workers << Thread.new do
         begin
           while (file_url = datasets.pop(true)).present?
-            download_file file_url, dir
+            download_file file_url, dir, debug: true
 
             number_completed += 1
 
             if number_completed % (total / 10).to_i == 0
               percentage = (100*number_completed/total.to_f)
               elapsed = (DateTime.now - start).to_f * 1.day
-              puts "#{percentage.round(1).to_s.rjust(5)}% complete (#{elapsed}s elapsed, #{0.01 * elapsed * (100 - percentage)}s remaining)"
+              remaining = elapsed / (percentage / 100)  - elapsed
+
+              puts "#{percentage.round(1).to_s.rjust(5)}% complete (#{elapsed.round(2)}s elapsed, #{remaining.round(2)}s remaining)"
             end
           end
         rescue ThreadError
@@ -82,7 +85,7 @@ class DownloadWorker
 
     # logs!
     elapsed = (DateTime.now - start).to_f * 1.day
-    puts "#{elapsed}s to download #{url.split('/').last} (#{total} checked)".green
+    puts "#{elapsed.round(2)}s to download #{url.split('/').last} (#{total} checked)".green
   end
 
   # downloads a specific dataset
@@ -93,12 +96,15 @@ class DownloadWorker
 
     filename = into.join(dataset_url.split('/').last)
     if File.exists?(filename) && File.size(filename) > 1.megabyte
+      puts "    #{dataset_url.split('/').last} already exists" if debug
+      GribConvert::convert filename.to_s
       return
     end
 
 
     response = HTTP.get(dataset_url)
     unless response.code == 200
+      puts "    #{dataset_url.split('/').last} does not exist (code: #{response.code})" if debug
       return
     end
 
@@ -111,7 +117,9 @@ class DownloadWorker
     end
 
     elapsed = (DateTime.now - start).to_f * 1.day
-    puts "#{elapsed}s to download #{dataset_url.split('/').last}" if debug
+    puts "#{elapsed.round(2)}s to download #{dataset_url.split('/').last}" if debug
+
+    GribConvert::convert filename.to_s
 
     elapsed
   end
