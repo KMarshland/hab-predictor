@@ -5,7 +5,7 @@ module GribConvert
   class << self
     def convert_level(path, level)
       new_file = "#{path.split('.').first}_l#{level}.gribp"
-      return if File.exist? new_file
+      return if File.exist?(new_file) && File.size(new_file) > 10000
 
       command = "grib_get_data -p shortName -w level=#{level} #{path}"
 
@@ -15,8 +15,9 @@ module GribConvert
           while (line = io.gets) do
             lat, lon, value, label = line.split ' '
             next unless label == 'u' || label == 'v'
+            next if lat == '' || lon == '' || value == ''
 
-            file.write "#{[lat].map(&:to_f).pack('g')}#{[lon].map(&:to_f).pack('g')}#{[value].map(&:to_f).pack('g')}#{label[0]}\n"
+            file.write "#{[lat.to_f].pack('g')}#{[lon.to_f].pack('g')}#{[value.to_f].pack('g')}#{label[0]}"
           end
         end
       end
@@ -32,7 +33,7 @@ module GribConvert
         puts "Converted #{level} (#{(Time.now - start).round(2)}s)"
       end
 
-      puts "Converted #{levels.length} levels (#{(Time.now - true_start).round(2)}s)"
+      puts "Converted #{LEVELS.length} levels (#{(Time.now - true_start).round(2)}s)"
     end
   end
 end

@@ -5,7 +5,7 @@ use std::f32;
 use serde::ser::{SerializeMap};
 
 const INTEGRAL_DURATION : f32 = 60.0; // seconds
-const EARTH_RADIUS : f32 = 6378.0;
+const EARTH_RADIUS : f32 = 6378000.0; // in m
 
 /*
  * A position time tuple
@@ -75,8 +75,8 @@ impl<'a> Add<&'a Velocity> for Point {
                 self.latitude  + (velocity.north*INTEGRAL_DURATION / EARTH_RADIUS) * (180.0 / f32::consts::PI)
             },
             longitude: {
-                self.longitude + (velocity.east*INTEGRAL_DURATION / EARTH_RADIUS) *
-                    (180.0 / f32::consts::PI) / f32::cos(self.latitude * f32::consts::PI/180.0)
+                bound(self.longitude + (velocity.east*INTEGRAL_DURATION / EARTH_RADIUS) *
+                    (180.0 / f32::consts::PI) / f32::cos(self.latitude * f32::consts::PI/180.0))
             },
             altitude: {
                 self.altitude + velocity.vertical * INTEGRAL_DURATION
@@ -98,4 +98,16 @@ impl<'a> Add<&'a Velocity> for Velocity {
             vertical: self.vertical + other.vertical
         }
     }
+}
+
+/*
+ * Circularly clamps value between -180 and 180
+ */
+fn bound(x : f32) -> f32 {
+    let mut val = x;
+    while val < -180.0 {
+        val += 360.0
+    }
+
+    ((val + 180.0) % 360.0) - 180.0
 }

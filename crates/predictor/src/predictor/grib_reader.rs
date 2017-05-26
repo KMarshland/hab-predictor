@@ -1,6 +1,5 @@
 use std::io::prelude::*;
 use std::fs::File;
-use std::io::BufReader;
 use std::process::Command;
 use std::mem;
 use chrono::prelude::*;
@@ -36,7 +35,7 @@ struct GribLine {
     lat : f32,
     lon : f32,
     value : f32,
-    key : String
+    key : char
 }
 
 impl GribReader {
@@ -67,41 +66,46 @@ impl GribReader {
             }
         }
 
-        let lat = (point.latitude * 2.0).round() / 2.0;
-        let lon = (point.longitude * 2.0).round() / 2.0 + 180.0; //TODO: make sure this is the right correction
+        let lat = (2.0*point.latitude).round() / 2.0;
+        let lon = (2.0*point.longitude).round()/2.0 + 180.0;
+
+        println!("Raw longitude: {}", point.longitude);
 
         let proper_filename = {
             let mut parts = self.path.split('.');
             parts.next().unwrap().to_string() + "_l" + best_level.to_string().as_str() + ".gribp"
         };
-        let proper_file = File::open(proper_filename).unwrap();
 
-        GribReader::scan_file(proper_file, lat, lon)
+        GribReader::scan_file(proper_filename, lat, lon)
     }
 
-    fn scan_file(file : File, lat : f32, lon : f32) -> Velocity {
+    fn scan_file(filename : String, lat : f32, lon : f32) -> Velocity {
+        let name = &filename;
+        let mut file = &mut File::open(name).unwrap();
+
         let mut u : f32 = 0.0;
         let mut v : f32 = 0.0;
 
         let mut has_u = false;
         let mut has_v = false;
 
-        let mut reader = BufReader::new(&file);
-
         loop {
-            match GribReader::read_line(&mut reader) {
+            match GribReader::read_line(&mut file) {
                 Some(line) => {
-                    if (line.lat - lat).abs() < 0.25 && (line.lon - lon).abs() < 0.25 {
-                        match line.key.as_ref() {
-                            "u" => {
+
+                    if lat == line.lat && lon == line.lon {
+                        match line.key {
+                            'u' => {
                                 u = line.value;
                                 has_u = true;
                             },
-                            "v" => {
+                            'v' => {
                                 v = line.value;
                                 has_v = true;
                             },
-                            _ => {}
+                            _ => {
+                                println!("Unknown key: {}", line.key)
+                            }
                         };
 
                         if has_u && has_v {
@@ -109,8 +113,11 @@ impl GribReader {
                         }
                     }
                 }
-                _ => {
-                    break;
+                None => {
+                    println!("Trying to find: {},{}", lat, lon);
+                    println!("Searching in {}", name);
+
+                    panic!("Reached end without finding data");
                 }
             }
         }
@@ -122,26 +129,35 @@ impl GribReader {
         }
     }
 
-    fn read_line(reader: &mut BufReader<&File>) -> Option<GribLine> {
-        let mut buffer = vec![];
+    /*
+     * Reads a line into a struct
+     * All values except for the key are IEEE754 formatted floats
+     * The key is just a byte
+     */
+    fn read_line(file: &mut File) -> Option<GribLine> {
 
-        let result = reader.read_until(b'\n', &mut buffer);
-        match result {
+        let mut buffer = [0; 13];
+
+        match file.read(&mut buffer) {
             Ok(bytes) => {
-                if
-                    bytes < 12 {
+                if bytes == 0 { //EOF
                     return None;
                 }
+
+                if bytes != 13 {
+                    panic!("Invalid number of bytes: ".to_string() + bytes.to_string().as_str());
+                }
             },
-            _ => {
+            Err(why) => {
+                println!("{:?}", why);
                 return None;
             }
         }
 
-        let lat = bytes_to_f32(buffer[0..3].to_vec());
-        let lon = bytes_to_f32(buffer[4..7].to_vec());
-        let val = bytes_to_f32(buffer[7..10].to_vec());
-        let key = String::from_utf8(buffer[11..].to_vec()).unwrap();
+        let lat = bytes_to_f32(buffer[0..4].to_vec());
+        let lon = bytes_to_f32(buffer[4..8].to_vec());
+        let val = bytes_to_f32(buffer[8..12].to_vec());
+        let key = buffer[12] as char;
 
         Some(GribLine {
             lat: lat,
@@ -344,6 +360,10 @@ fn bytes_to_u64(bytes : Vec<u8>, number_of_bytes : u64) -> u64 {
 }
 
 fn bytes_to_f32(bytes : Vec<u8>) -> f32 {
+    if bytes.len() != 4 {
+        panic!("Invalid byte length ".to_string() + bytes.len().to_string().as_str())
+    }
+
     let num = bytes_to_u64(bytes, 4) as u32;
 
     unsafe {mem::transmute(num)}
