@@ -45,6 +45,8 @@ module GribConvert
     end
 
     def convert(path)
+      puts "Converting #{path}"
+
       true_start = Time.now
 
       base_dir = path.split('.').first
@@ -57,10 +59,11 @@ module GribConvert
 
         convert_level(path: path, level: level, dir: base_dir)
 
-        puts "Converted L#{level} (#{(Time.now - start).round(2)}s)"
+        puts "    converted L#{level} (#{(Time.now - start).round(2)}s)"
       end
 
-      puts "Converted #{LEVELS.length} levels (#{(Time.now - true_start).round(2)}s)"
+      puts "-> Converted #{LEVELS.length} levels (#{(Time.now - true_start).round(2)}s)"
+      puts
     end
 
     def convert_folder(dir)
