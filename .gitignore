@@ -41,3 +41,5 @@ lib/data/*
 .byebug_history
 
 datasets/*
+
+config/newrelic.yml
