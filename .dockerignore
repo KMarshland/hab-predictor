@@ -2,5 +2,5 @@
 .git
 dump.rdb
 
-lib/data
+lib/data/*
 log/development.log

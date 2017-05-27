@@ -192,9 +192,9 @@ RUN touch /var/log/cron.log && \
 
 # Set more permissions
 USER root
-RUN chmod +x ./deploy/boot.sh
-RUN chmod +x ./deploy/start_puma.sh
-RUN chown -R run:app $APP_HOME
+RUN chmod +x ./deploy/boot.sh && \
+    chmod +x ./deploy/start_puma.sh && \
+    chown -R run:app $APP_HOME
 
 
 # Stay as root -- the start script will deescalate its own permissions

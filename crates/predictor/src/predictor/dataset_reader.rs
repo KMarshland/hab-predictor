@@ -2,6 +2,7 @@ use std::sync::Mutex;
 use std::fs;
 use std::env;
 use std::fs::DirEntry;
+use std::mem;
 use chrono::prelude::*;
 use predictor::point::*;
 use predictor::grib_reader::*;
@@ -16,8 +17,8 @@ struct DataSetReader {
 
 impl UninitializedDataSetReader {
 
-    fn initialize(&mut self) -> DataSetReader {
-        DataSetReader {
+    fn initialize(&mut self) -> Result<DataSetReader, String> {
+        Ok(DataSetReader {
             grib_readers: {
                 let start_time = UTC::now();
 
@@ -49,7 +50,7 @@ impl UninitializedDataSetReader {
                 }
 
                 if best_date == 0 {
-                    panic!("No data found")
+                    return Err(String::from("No data found"));
                 }
 
                 let mut bucket0 : Vec<DirEntry> = vec![];
@@ -135,19 +136,11 @@ impl UninitializedDataSetReader {
 
                 readers
             }
-        }
+        })
     }
 }
 
 impl DataSetReader {
-
-    pub fn new(dataset_directory : String) -> DataSetReader {
-        let mut reader = UninitializedDataSetReader {
-            dataset_directory: dataset_directory
-        };
-
-        reader.initialize()
-    }
 
     pub fn velocity_at(&mut self, point: &Point) -> Velocity {
         // TODO: Make it check the cache here
@@ -176,12 +169,78 @@ impl DataSetReader {
     }
 }
 
+struct WrappedDataSetReader {
+    dataset_directory: String,
+    reader: Option<Box<DataSetReader>>
+}
+
+impl WrappedDataSetReader {
+
+    /*
+     * Function to get the dataset reader
+     * If none exists, it will try initializing one
+     */
+    pub fn get(&mut self) -> Result<Box<DataSetReader>, String> {
+        let reader = mem::replace(&mut self.reader, None);
+
+        match reader {
+            Some(dataset_box) => {
+                Ok(dataset_box)
+            },
+
+            None => {
+                let mut uninitialized = UninitializedDataSetReader {
+                    dataset_directory: self.dataset_directory.clone()
+                };
+
+                let initialized = uninitialized.initialize();
+
+                match initialized {
+                    Ok(initialized_reader) => {
+                        let boxed = Box::new(initialized_reader);
+
+                        self.reader = Some(boxed);
+
+                        self.get()
+                    },
+                    Err(why) => {
+                        return Err(why)
+                    }
+                }
+            }
+        }
+    }
+
+    pub fn new(dataset_directory : String) -> Self {
+        WrappedDataSetReader {
+            dataset_directory: dataset_directory,
+            reader: None
+        }
+    }
+}
+
 lazy_static! {
-    static ref READER : Mutex<DataSetReader> = Mutex::new(DataSetReader::new(
+    static ref READER : Mutex<WrappedDataSetReader> = Mutex::new(WrappedDataSetReader::new(
         [env::var("RAILS_ROOT").expect("RAILS_ROOT environment variable not found"), "/lib/data".to_string()].concat()
     ));
 }
 
 pub fn velocity_at(point: &Point) -> Velocity {
-    READER.lock().unwrap().velocity_at(&point)
+    let result = match READER.lock().unwrap().get() {
+        Ok(mut reader) => {
+            Ok(reader.velocity_at(&point))
+        },
+        Err(why) => {
+            Err(why)
+        }
+    };
+
+    match result {
+        Ok(mut vel) => {
+            vel
+        },
+        Err(why) => {
+            panic!(why)
+        }
+    }
 }

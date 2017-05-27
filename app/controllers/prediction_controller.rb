@@ -11,6 +11,12 @@ class PredictionController < ApplicationController
         ascent_rate: 5,
         descent_rate: 5
     )
+  rescue RuntimeError => e
+    NewRelic::Agent.notice_error e
+    render json: {
+        success: false,
+        error: e.to_s
+    }, status: 500
   end
 
 end
