@@ -5,4 +5,4 @@ services:
     build: .
     command: ./deploy/boot.sh
     ports:
-      - "80:5000"
+      - "5000:80"

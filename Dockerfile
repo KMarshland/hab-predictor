@@ -79,13 +79,48 @@ RUN mkdir -p "$GEM_HOME" "$BUNDLE_BIN" \
 # This is where our custom docker configuration really begins
 
 # Install basic dependencies
-RUN apt-get update -qq
-RUN apt-get install -y build-essential nodejs postgresql-client nano redis-server nginx cron less ssh redis-server
+RUN apt-get update -qq && \
+    apt-get install -y --no-install-recommends \
+    build-essential \
+    nodejs \
+    postgresql-client \
+    nano \
+    redis-server \
+    nginx \
+    cron \
+    less \
+    redis-server \
+    cmake
 ENV TERM xterm
+
+# Install rust
+ENV RUST_VERSION=1.17.0
+RUN curl -sO https://static.rust-lang.org/dist/rust-$RUST_VERSION-x86_64-unknown-linux-gnu.tar.gz && \
+      tar -xzf rust-$RUST_VERSION-x86_64-unknown-linux-gnu.tar.gz && \
+      ./rust-$RUST_VERSION-x86_64-unknown-linux-gnu/install.sh --without=rust-docs && \
+      rm -rf \
+        rust-$RUST_VERSION-x86_64-unknown-linux-gnu \
+        rust-$RUST_VERSION-x86_64-unknown-linux-gnu.tar.gz \
+        /var/lib/apt/lists/* \
+        /tmp/* \
+        /var/tmp/*
 
 # Install cron
 RUN gem update --system 2.6.1
 RUN gem install bundler --version $BUNDLER_VERSION
+
+# Install grib api
+RUN curl 'https://software.ecmwf.int/wiki/download/attachments/3473437/grib_api-1.22.0-Source.tar.gz?api=v2' > grib.tar.gz && \
+    mkdir grib && \
+    tar -xzf grib.tar.gz -C grib --strip-components 1 && \
+    rm grib.tar.gz && \
+    mkdir build && \
+    cd build && \
+    cmake ../grib -DENABLE_GRIB_THREADS=ON -DENABLE_FORTRAN=OFF -DENABLE_PYTHON=OFF -DENABLE_JPG=OFF -DENABLE_NETCDF=OFF && \
+    make && make install && \
+    cd .. && \
+    rm -rf grib && \
+    rm -rf build
 
 # Set up nginx
 RUN rm -rf /etc/nginx/sites-available/default
@@ -117,11 +152,6 @@ RUN chown nginx /var/log/nginx/error.log
 RUN chown -R nginx /var/run/nginx
 RUN chmod 777 /var/run/nginx
 
-# Install gems
-ADD Gemfile Gemfile
-ADD Gemfile.lock Gemfile.lock
-RUN bundle install
-
 # Add config files (optimizing cache)
 WORKDIR $APP_HOME
 
@@ -132,39 +162,38 @@ COPY bin $APP_HOME/bin
 COPY Rakefile $APP_HOME/Rakefile
 COPY config/environments $APP_HOME/config/environments
 COPY config/initializers $APP_HOME/config/initializers
-COPY config/application.rb config/boot.rb config/cable.yml config/database.yml config/environment.rb config/newrelic.yml config/puma.rb config/puma_prod.rb config/secrets.yml config/sidekiq.yml $APP_HOME/config/
+COPY config/application.rb config/boot.rb config/cable.yml config/database.yml config/environment.rb config/puma.rb config/secrets.yml $APP_HOME/config/
 
 RUN chown -R deploy:app $APP_HOME
 
 RUN nginx -t #Aborts build if nginx config file is invalid
 RUN service nginx start
 
-# Update crontabs
-COPY config/schedule.rb $APP_HOME/config/schedule.rb
-RUN touch /var/log/cron.log
-RUN touch /var/log/whenever.log && chmod go+rw /var/log/whenever.log
-RUN whenever -w
-
-# Precompile assets
-RUN mkdir $APP_HOME/app
-RUN mkdir $APP_HOME/vendor
-
-COPY app/assets $APP_HOME/app/assets
-COPY lib/assets $APP_HOME/lib/assets
-COPY vendor/assets $APP_HOME/vendor/assets
-
-RUN RAILS_ENV=production bundle exec rake assets:precompile
+# Install gems
+ADD Gemfile Gemfile
+ADD Gemfile.lock Gemfile.lock
+ADD crates crates
+RUN bundle install
 
 # Add the rest of our sourcecode
 ADD . $APP_HOME
 
-# Clear logs (dockerignore doesn't work)
-RUN > log/development.log
+# Build our rust code
+RUN bundle exec rake build
+
+# Update crontabs
+COPY config/schedule.rb $APP_HOME/config/schedule.rb
+RUN touch /var/log/cron.log && \
+    touch /var/log/whenever.log && \
+    chmod go+rw /var/log/whenever.log && \
+    whenever -w
+
+# RUN RAILS_ENV=production bundle exec rake assets:precompile
 
 # Set more permissions
 USER root
-RUN chmod +x ./container/boot.sh
-RUN chmod +x ./container/start_puma.sh
+RUN chmod +x ./deploy/boot.sh
+RUN chmod +x ./deploy/start_puma.sh
 RUN chown -R run:app $APP_HOME
 
 
