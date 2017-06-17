@@ -123,7 +123,7 @@ impl UninitializedDataSetReader {
                     let extension = path.extension().unwrap().to_str().unwrap();
 
                     if extension == "grb2" {
-                        println!("{}, extension {}", path.display(), extension);
+                        // println!("{}, extension {}", path.display(), extension);
 
                         // TODO: multithread this asshole
                         readers.push(Box::new(GribReader::new(path.to_str().unwrap().to_string())));
@@ -132,7 +132,7 @@ impl UninitializedDataSetReader {
 
                 // TODO: enforce reader sort order
 
-                println!("Readers initialized: {}ms", UTC::now().signed_duration_since(start_time).num_milliseconds());
+                // println!("Readers initialized: {}ms", UTC::now().signed_duration_since(start_time).num_milliseconds());
 
                 readers
             }
