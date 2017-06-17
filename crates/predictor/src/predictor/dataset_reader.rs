@@ -3,6 +3,8 @@ use std::fs;
 use std::env;
 use std::fs::DirEntry;
 use std::mem;
+use std::sync::Arc;
+use std::cell::Cell;
 use chrono::prelude::*;
 use predictor::point::*;
 use predictor::grib_reader::*;
@@ -12,7 +14,7 @@ struct UninitializedDataSetReader {
 }
 
 struct DataSetReader {
-    grib_readers: Vec<Box<GribReader>>
+    grib_readers: Vec<Arc<GribReader>>
 }
 
 impl UninitializedDataSetReader {
@@ -116,17 +118,16 @@ impl UninitializedDataSetReader {
                     }
                 };
 
-                let mut readers : Vec<Box<GribReader>> = vec![];
+                let mut readers : Vec<Arc<GribReader>> = vec![];
                 for file in bucket {
                     let path = file.path();
 
                     let extension = path.extension().unwrap().to_str().unwrap();
 
                     if extension == "grb2" {
-                        println!("{}, extension {}", path.display(), extension);
+                        let reader = GribReader::new(path.to_str().unwrap().to_string());
 
-                        // TODO: multithread this asshole
-                        readers.push(Box::new(GribReader::new(path.to_str().unwrap().to_string())));
+                        readers.push(Arc::new(reader));
                     }
                 }
 
@@ -142,21 +143,43 @@ impl UninitializedDataSetReader {
 
 impl DataSetReader {
 
-    pub fn velocity_at(&mut self, point: &Point) -> Velocity {
+    pub fn velocity_at(&mut self, point: &Point) -> Result<Velocity, String> {
         // TODO: Make it check the cache here
 
-        let reader = self.get_reader(point);
+        let reader = match self.get_reader(point) {
+            Ok(reader) => {
+                reader
+            },
+            Err(why) => {
+                return Err(why);
+            }
+        };
 
-        reader.velocity_at(point)
+        Ok(reader.velocity_at(point))
     }
 
-    fn get_reader(&mut self, point: &Point) -> &Box<GribReader> {
+    fn get_reader(&mut self, point: &Point) -> Result<GribReader, String> {
         // TODO: implement a binary search tree or alternative fast lookup
 
-        let mut best_reader = &self.grib_readers[0];
+        let mut best_reader = match Arc::try_unwrap(self.grib_readers[0].clone()) {
+            Ok(reader) => {
+                reader
+            },
+            Err(_) => {
+                return Err(String::from("Could not get reader"));
+            }
+        };
 
         for i in 1..self.grib_readers.len() {
-            let reader = &self.grib_readers[i];
+            let reader = match Arc::try_unwrap(self.grib_readers[i].clone()) {
+                Ok(reader) => {
+                    reader
+                },
+                Err(_) => {
+                    return Err(String::from("Could not get reader"));
+                }
+            };
+
             let abs_seconds = reader.time.signed_duration_since(point.time).num_seconds().abs();
             let best_seconds = best_reader.time.signed_duration_since(point.time).num_seconds().abs();
 
@@ -165,7 +188,7 @@ impl DataSetReader {
             }
         }
 
-        best_reader
+        Ok(best_reader)
     }
 }
 
@@ -237,7 +260,7 @@ pub fn velocity_at(point: &Point) -> Velocity {
 
     match result {
         Ok(mut vel) => {
-            vel
+            vel.unwrap()
         },
         Err(why) => {
             panic!(why)
