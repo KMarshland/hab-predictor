@@ -49,7 +49,7 @@ module Prediction
 
       #in seconds, the maximum time it will check things for
       max_time = params.with_indifferent_access[:timeout]
-      start_time = Time.strptime(start.time, '%Y-%m-%dT%H:%M:%SZ')
+      start_time = Time.at(start.time)
 
       num_children = params[:performance] # higher means better performance, lower means faster
 
@@ -103,7 +103,7 @@ module Prediction
           end
 
           #see if you've reached the timeout
-          if max_time.present? && (Time.strptime(current.time, '%Y-%m-%dT%H:%M:%SZ') - start_time).to_f > max_time
+          if max_time.present? && (Time.at(current.time) - start_time).to_f > max_time
             puts "Duration exceeded - guidance finished".yellow
             return build_from_finish.call(best_overall)
           end

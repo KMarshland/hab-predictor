@@ -98,18 +98,15 @@ module Prediction
       return @prediction unless @prediction.nil?
       # puts "Making prediction from #{@lat}, #{@lon} at #{@altitude}m"
 
-      @prediction = Prediction::predict({
+      @prediction = Predictor.predict({
                                             lat: @lat,
                                             lon: @lon,
                                             altitude: @altitude,
 
-                                            time: @time,
-                                            duration: Prediction::time_variance,
-
-                                            ascent_rate: 0.02,
-                                            descent_rate: 0.02,
-                                            burst_altitude: 24000
-                                        })
+                                            time: @time.to_i,
+                                            profile: 'valbal',
+                                            duration: Prediction::time_variance*60,
+                                        })['positions']
 
       if prediction.is_a?(Hash) && prediction.has_key?(:success) && !prediction[:success]
         puts 'Error making prediction: '.red
@@ -133,7 +130,7 @@ module Prediction
         lat = last[:latitude].to_f
         lon = last[:longitude].to_f
         start_alt = last[:altitude].to_f
-        time = last[:datetime]
+        time = Time.strptime(last[:time], "%Y-%m-%d %H:%M:%S %Z").to_i
 
         #vary the altitudes
         (-Prediction::altitude_variance..Prediction::altitude_variance).each do |v|
