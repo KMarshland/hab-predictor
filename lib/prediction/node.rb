@@ -183,7 +183,7 @@ module Prediction
     def self.to_string(lat, lon, altitude, time)
       coordinates_tolerance = 5
       altitude_tolerance = -1
-      "#{lat.round(coordinates_tolerance)}|#{lon.round(coordinates_tolerance)}|#{altitude.round(altitude_tolerance)}|#{time}"
+      "#{lat.round(coordinates_tolerance)}|#{lon.round(coordinates_tolerance)}|#{altitude.round(altitude_tolerance)}|#{Time.at(time)}"
     end
 
     @@nodes = {}
