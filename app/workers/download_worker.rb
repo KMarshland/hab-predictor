@@ -87,7 +87,7 @@ class DownloadWorker
     elapsed = (DateTime.now - start).to_f * 1.day
     puts "#{elapsed.round(2)}s to download #{url.split('/').last} (#{total} checked)".green
 
-    GribConvert::convert_folder dir
+    GribConvert::convert_folder dir, serial: true
   end
 
   # downloads a specific dataset

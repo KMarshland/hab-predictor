@@ -16,7 +16,7 @@ module GribConvert
       incomplete_buffer = {}
       complete_buffer = []
 
-      # flushes existing
+      # flushes existing (cost: ~50s)
       written = 0
       flush_buffer = -> {
         file_contents = {}
@@ -45,7 +45,7 @@ module GribConvert
           FileUtils::mkdir_p "#{dir}/#{name.match(/L\d+/).to_s}"
 
           # TODO: this may actually clobber the some data. We need to check file mode
-          file = File.open("#{dir}/#{name}", 'wb')
+          file = File.open("#{dir}/#{name}", 'ab')
           file.write contents
 
           file.close
@@ -55,11 +55,13 @@ module GribConvert
         puts "\t #{written} tuples written (~#{(100.0*written/APPROX_TUPLE_COUNT.to_f).round(2)}%)" if written > 0
       }
 
-      # start parsing
+      # start parsing (cost: ~20s)
       command = "grib_get_data -p shortName,level -w shortName=u/v,level!=0 #{path}"
 
       IO.popen(command) do |io|
         io.gets # skip first line
+
+        # interpret (cost: ~120s)
         while (line = io.gets) do
           lat, lon, value, label, level = line.split ' '
           next if lat == '' || lon == '' || value == ''
@@ -68,22 +70,27 @@ module GribConvert
           lon = lon.to_f
 
           key = :"#{level}_#{lat}_#{lon}"
-          buffer = (incomplete_buffer[key] ||= [
-              level,
-              lat,
-              lon,
-              nil,
-              nil
-          ])
+          buffer = incomplete_buffer[key]
 
-          if label == 'u'
-            buffer[3] = value.to_f
-          else
-            buffer[4] = value.to_f
-          end
+          # weird if structure but microoptimizations actually matter here
 
-          if buffer[3] && buffer[4]
+          if buffer
+            if label == 'u'
+              buffer[3] = value.to_f
+            else
+              buffer[4] = value.to_f
+            end
+
             complete_buffer << incomplete_buffer.delete(key)
+          else
+            is_u = label == 'u'
+            incomplete_buffer[key] = [
+                level,
+                lat,
+                lon,
+                is_u ? value.to_f : nil,
+                is_u ? nil : value.to_f,
+            ]
           end
 
           flush_buffer[] if complete_buffer.size >= MEMORY_BUFFER_SIZE
