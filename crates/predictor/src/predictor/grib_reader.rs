@@ -78,7 +78,6 @@ impl GribReader {
         // check cache
         {
             let ref mut cache = self.cache;
-            println!("{} items in cache", cache.len());
 
             match cache.get_mut(&aligned.key()) {
                 Some(vel) => {
@@ -112,8 +111,14 @@ impl GribReader {
                         data_found = true;
                     }
 
-                    // TODO: store in cache
-//                    self.cache.insert()
+                    self.cache.insert(
+                        AlignedPoint::cache_key(aligned.level, line.lat, line.lon),
+                        Velocity {
+                            north: line.u,
+                            east: line.v,
+                            vertical: 0.0
+                        }
+                    );
                 }
                 Err(why) => {
                     match why {
