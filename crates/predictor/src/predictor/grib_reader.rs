@@ -3,9 +3,11 @@ use std::fs::File;
 use std::mem;
 use chrono::prelude::*;
 use predictor::point::*;
+use lru_cache::LruCache;
 
 const CELL_SIZE : f32 = 25.0; // Make sure this matches the grid size in grib_convert.rb
-const DATA_RESOLUTION : f32 = 0.5;
+const DATA_RESOLUTION : f32 = 0.5; // resolution in GRIB files
+const CACHE_SIZE : usize = 10_000; // in velocity tuples
 
 struct UnprocessedGribReader {
     path: String
@@ -22,7 +24,9 @@ pub struct GribReader {
     reference_time: ReferenceTime,
     pub time: DateTime<UTC>,
 
-    path: String
+    path: String,
+
+    cache: LruCache<u32, Velocity>
 }
 
 enum ReferenceTime {
@@ -50,7 +54,10 @@ impl GribReader {
         reader.read().unwrap()
     }
 
-    pub fn velocity_at(&self, point: &Point) -> Result<Velocity, String> {
+    pub fn velocity_at(&mut self, point: &Point) -> Result<Velocity, String> {
+
+        // figure out the proper file to look in
+
         let isobaric_hpa = 1013.25*(1.0 - point.altitude/44330.0).powf(5.255);
 
         //TODO: make a fast lookup structure for this
@@ -83,9 +90,33 @@ impl GribReader {
                 ".gribp"
         };
 
-        GribReader::scan_file(proper_filename, lat, lon)
+        // check cache
+
+        // give 10 bits each to each part of the key
+        // each of these parts is converted to a u32
+        // WARNING: if any has a value greater than 1023 this will have cache collisions
+
+        let key : u32 = best_level as u32 +
+            (((lat + 90.0)/DATA_RESOLUTION) as u32) << 10 +
+            ((lon/DATA_RESOLUTION) as u32) << 20
+        ;
+
+        let ref mut cache = self.cache;
+        println!("{} items in cache", cache.len());
+
+        match cache.get_mut(&key) {
+            Some(vel) => {
+                Ok(vel.clone())
+            },
+            None => {
+                GribReader::scan_file(proper_filename, lat, lon)
+            }
+        }
     }
 
+    /*
+     *
+     */
     fn scan_file(filename : String, lat : f32, lon : f32) -> Result<Velocity, String> {
         let name = &filename;
         let mut file = &mut File::open(name).unwrap();
@@ -115,10 +146,6 @@ impl GribReader {
                                 println!("Unknown key: {}", line.key)
                             }
                         };
-
-                        if has_u && has_v {
-                            break;
-                        }
                     }
                 }
                 Err(why) => {
@@ -298,7 +325,8 @@ impl ProcessingGribReader {
         Ok(GribReader {
             reference_time: reference_time,
             time: time,
-            path: self.path.clone()
+            path: self.path.clone(),
+            cache: LruCache::new(CACHE_SIZE)
         })
     }
 

@@ -32,6 +32,7 @@ impl ::serde::Serialize for Point {
 /*
  * Velocity data
  */
+#[derive(Clone)]
 pub struct Velocity {
     pub north: f32,
     pub east: f32,

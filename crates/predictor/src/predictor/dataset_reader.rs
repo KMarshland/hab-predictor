@@ -142,8 +142,6 @@ impl UninitializedDataSetReader {
 impl DataSetReader {
 
     pub fn velocity_at(&mut self, point: &Point) -> Result<Velocity, String> {
-        // TODO: Make it check the cache here
-
         match self.get_reader(point) {
             Ok(reader) => {
                 reader.velocity_at(point)
@@ -152,29 +150,33 @@ impl DataSetReader {
         }
     }
 
-    fn get_reader(&mut self, point: &Point) -> Result<&Box<GribReader>, String> {
+    fn get_reader(&mut self, point: &Point) -> Result<&mut Box<GribReader>, String> {
         // TODO: implement a binary search tree or alternative fast lookup
 
-        let readers = &self.grib_readers;
+        let readers = &mut self.grib_readers;
 
         if readers.is_empty() {
             return Err(String::from("No grib readers"));
         }
 
-        let mut best_reader = &readers[0];
+        let mut best_index = 0;
+        let mut best_seconds = {
+            let best_reader = &readers[0];
+            best_reader.time.signed_duration_since(point.time).num_seconds().abs()
+        };
 
-        for i in 1..self.grib_readers.len() {
-            let reader = &readers[i];
+        for i in 1..readers.len() {
+            let reader = &mut readers[i];
 
             let abs_seconds = reader.time.signed_duration_since(point.time).num_seconds().abs();
-            let best_seconds = best_reader.time.signed_duration_since(point.time).num_seconds().abs();
 
             if abs_seconds < best_seconds {
-                best_reader = reader;
+                best_index = i;
+                best_seconds = abs_seconds;
             }
         }
 
-        Ok(best_reader)
+        Ok(&mut readers[best_index])
     }
 }
 
