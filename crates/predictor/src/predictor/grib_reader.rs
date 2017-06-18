@@ -6,7 +6,6 @@ use predictor::point::*;
 use lru_cache::LruCache;
 
 const CELL_SIZE : f32 = 25.0; // Make sure this matches the grid size in grib_convert.rb
-const DATA_RESOLUTION : f32 = 0.5; // resolution in GRIB files
 const CACHE_SIZE : usize = 10_000; // in velocity tuples
 
 struct UnprocessedGribReader {
@@ -40,8 +39,14 @@ enum ReferenceTime {
 struct GribLine {
     lat : f32,
     lon : f32,
-    value : f32,
-    key : char
+    u : f32,
+    v : f32
+}
+
+enum GribReadError {
+    EOF,
+    Corrupted(usize),
+    IO(String)
 }
 
 impl GribReader {
@@ -57,27 +62,7 @@ impl GribReader {
     pub fn velocity_at(&mut self, point: &Point) -> Result<Velocity, String> {
 
         // figure out the proper file to look in
-
-        let isobaric_hpa = 1013.25*(1.0 - point.altitude/44330.0).powf(5.255);
-
-        //TODO: make a fast lookup structure for this
-        let levels = [2, 3, 5, 7, 10, 20, 30, 50, 70, 100, 150, 200, 250, 300, 350, 400, 450, 500, 550, 600, 650, 700, 750, 800, 850, 900, 925, 950, 975, 1000];
-        let mut best_level : i32 = 1;
-        let mut best_level_diff : f32 = (isobaric_hpa - (best_level as f32)).abs();
-
-        for level_ref in levels.iter() {
-            let level = *level_ref as i32;
-            let diff = (isobaric_hpa - (level as f32)).abs();
-
-            if diff < best_level_diff {
-                best_level = level;
-                best_level_diff = diff;
-            }
-        }
-
-        // Round to nearest DATA_RESOLUTION
-        let lat = (point.latitude / DATA_RESOLUTION).round() * DATA_RESOLUTION;
-        let lon = (point.longitude / DATA_RESOLUTION).round() * DATA_RESOLUTION + 180.0;
+        let aligned = point.align();
 
         let grid_lat = (point.latitude / CELL_SIZE).floor() * CELL_SIZE;
         let grid_lon = ((point.longitude + 180.0) / CELL_SIZE).floor() * CELL_SIZE;
@@ -85,76 +70,69 @@ impl GribReader {
         let proper_filename = {
             let mut parts = self.path.split('.');
             parts.next().unwrap().to_string() +
-                "/L" + best_level.to_string().as_str() +
+                "/L" + aligned.level.to_string().as_str() +
                 "/C" + grid_lat.to_string().as_str() + "_" + grid_lon.to_string().as_str() +
                 ".gribp"
         };
 
         // check cache
+        {
+            let ref mut cache = self.cache;
+            println!("{} items in cache", cache.len());
 
-        // give 10 bits each to each part of the key
-        // each of these parts is converted to a u32
-        // WARNING: if any has a value greater than 1023 this will have cache collisions
-
-        let key : u32 = best_level as u32 +
-            (((lat + 90.0)/DATA_RESOLUTION) as u32) << 10 +
-            ((lon/DATA_RESOLUTION) as u32) << 20
-        ;
-
-        let ref mut cache = self.cache;
-        println!("{} items in cache", cache.len());
-
-        match cache.get_mut(&key) {
-            Some(vel) => {
-                Ok(vel.clone())
-            },
-            None => {
-                GribReader::scan_file(proper_filename, lat, lon)
+            match cache.get_mut(&aligned.key()) {
+                Some(vel) => {
+                    return Ok(vel.clone())
+                },
+                None => {}
             }
         }
+
+        self.scan_file(proper_filename, aligned)
     }
 
     /*
      *
      */
-    fn scan_file(filename : String, lat : f32, lon : f32) -> Result<Velocity, String> {
+    fn scan_file(&mut self, filename : String, aligned : AlignedPoint) -> Result<Velocity, String> {
         let name = &filename;
         let mut file = &mut File::open(name).unwrap();
 
         let mut u : f32 = 0.0;
         let mut v : f32 = 0.0;
 
-        let mut has_u = false;
-        let mut has_v = false;
-
+        let mut data_found = false;
 
         loop {
             match GribReader::read_line(&mut file) {
                 Ok(line) => {
-
-                    if lat == line.lat && lon == line.lon {
-                        match line.key {
-                            'u' => {
-                                u = line.value;
-                                has_u = true;
-                            },
-                            'v' => {
-                                v = line.value;
-                                has_v = true;
-                            },
-                            _ => {
-                                println!("Unknown key: {}", line.key)
-                            }
-                        };
+                    if aligned.latitude == line.lat && aligned.longitude == line.lon {
+                        u = line.u;
+                        v = line.v;
+                        data_found = true;
                     }
+
+                    // TODO: store in cache
+//                    self.cache.insert()
                 }
                 Err(why) => {
-                    println!("Trying to find: {},{}", lat, lon);
-                    println!("Searching in {}", name);
-
-                    return Err(why);
-                }
+                    match why {
+                        GribReadError::EOF => {
+                            break; // you're done!
+                        },
+                        GribReadError::Corrupted(_) => {
+                            return Err(String::from("Invalid number of bytes in file"));
+                        },
+                        GribReadError::IO(why) => {
+                            return Err(why);
+                        }
+                    }
+                },
             }
+        }
+
+        if !data_found {
+            return Err(String::from("Datapoint not found"));
         }
 
         Ok(Velocity {
@@ -169,35 +147,66 @@ impl GribReader {
      * All values except for the key are IEEE754 formatted floats
      * The key is just a byte
      */
-    fn read_line(file: &mut File) -> Result<GribLine, String> {
+    fn read_line(file: &mut File) -> Result<GribLine, GribReadError> {
 
-        let mut buffer = [0; 13];
+        let mut buffer = [0; 16];
 
         match file.read(&mut buffer) {
             Ok(bytes) => {
                 if bytes == 0 { //EOF
-                    return Err(String::from("Reached end without finding data"));
+                    return Err(GribReadError::EOF);
                 }
 
-                if bytes != 13 {
-                    return Err("Invalid number of bytes: ".to_string() + bytes.to_string().as_str());
+                if bytes != 16 {
+                    return Err(GribReadError::Corrupted(bytes));
                 }
             },
             Err(why) => {
-                return Err(why.to_string());
+                return Err(GribReadError::IO(why.to_string()));
             }
         }
 
-        let lat = result_or_return!(bytes_to_f32(buffer[0..4].to_vec()));
-        let lon = result_or_return!(bytes_to_f32(buffer[4..8].to_vec()));
-        let val = result_or_return!(bytes_to_f32(buffer[8..12].to_vec()));
-        let key = buffer[12] as char;
+        let lat = match bytes_to_f32(buffer[0..4].to_vec()) {
+            Ok(val) => {
+                val
+            },
+            Err(why) => {
+                return Err(GribReadError::IO(why))
+            }
+        };
+
+        let lon = match bytes_to_f32(buffer[4..8].to_vec()) {
+            Ok(val) => {
+                val
+            },
+            Err(why) => {
+                return Err(GribReadError::IO(why))
+            }
+        };
+
+        let u = match bytes_to_f32(buffer[8..12].to_vec()) {
+            Ok(val) => {
+                val
+            },
+            Err(why) => {
+                return Err(GribReadError::IO(why))
+            }
+        };
+
+        let v = match bytes_to_f32(buffer[12..16].to_vec()) {
+            Ok(val) => {
+                val
+            },
+            Err(why) => {
+                return Err(GribReadError::IO(why))
+            }
+        };
 
         Ok(GribLine {
             lat: lat,
             lon: lon,
-            value: val,
-            key: key
+            u: u,
+            v: v
         })
     }
 }
