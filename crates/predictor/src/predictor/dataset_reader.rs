@@ -2,8 +2,6 @@ use std::sync::Mutex;
 use std::fs;
 use std::env;
 use std::fs::DirEntry;
-use std::mem;
-use std::cell::Cell;
 use chrono::prelude::*;
 use predictor::point::*;
 use predictor::grib_reader::*;
@@ -45,7 +43,7 @@ impl UninitializedDataSetReader {
                             }
                         }
                         Err(_) => {
-                            //                            println!("Warning: junk file/folder in lib/data: {}", name)
+                            // println!("Warning: junk file/folder in lib/data: {}", name)
                         },
                     }
                 }
@@ -146,15 +144,22 @@ impl DataSetReader {
     pub fn velocity_at(&mut self, point: &Point) -> Result<Velocity, String> {
         // TODO: Make it check the cache here
 
-        let reader = self.get_reader(point);
-
-        Ok(reader.velocity_at(point))
+        match self.get_reader(point) {
+            Ok(reader) => {
+                reader.velocity_at(point)
+            },
+            Err(why) => Err(why)
+        }
     }
 
-    fn get_reader(&mut self, point: &Point) -> &Box<GribReader> {
+    fn get_reader(&mut self, point: &Point) -> Result<&Box<GribReader>, String> {
         // TODO: implement a binary search tree or alternative fast lookup
 
         let readers = &self.grib_readers;
+
+        if readers.is_empty() {
+            return Err(String::from("No grib readers"));
+        }
 
         let mut best_reader = &readers[0];
 
@@ -169,48 +174,53 @@ impl DataSetReader {
             }
         }
 
-        best_reader
+        Ok(best_reader)
     }
 }
 
 struct WrappedDataSetReader {
     dataset_directory: String,
-    reader: Option<Box<DataSetReader>>
+    reader: Option<DataSetReader>
 }
 
 impl WrappedDataSetReader {
 
-    /*
-     * Function to get the dataset reader
-     * If none exists, it will try initializing one
-     */
-    pub fn get(&mut self) -> Result<Box<DataSetReader>, String> {
-        let reader = mem::replace(&mut self.reader, None);
+    pub fn velocity_at(&mut self, point: &Point) -> Result<Velocity, String> {
+        match self.initialize_reader() {
+            Ok(_) => {
+                // take the reader temporarily
+                let reader = self.reader.take();
 
-        match reader {
-            Some(dataset_box) => {
-                Ok(dataset_box)
+                // unwrap will not panic, because we already know it has initialized properly
+                let mut unwrapped = reader.unwrap();
+
+                let velocity = unwrapped.velocity_at(point);
+
+                // replace it
+                self.reader = Some(unwrapped);
+
+                velocity
             },
+            Err(why) => Err(why)
+        }
+    }
 
-            None => {
-                let mut uninitialized = UninitializedDataSetReader {
-                    dataset_directory: self.dataset_directory.clone()
-                };
+    /*
+     * Function to create a new dataset reader if needed
+     */
+    fn initialize_reader(&mut self) -> Result<bool, String> {
 
-                let initialized = uninitialized.initialize();
+        if !self.reader.is_none() {
+            return Ok(true);
+        }
 
-                match initialized {
-                    Ok(initialized_reader) => {
-                        let boxed = Box::new(initialized_reader);
-
-                        self.reader = Some(boxed);
-
-                        self.get()
-                    },
-                    Err(why) => {
-                        return Err(why)
-                    }
-                }
+        match self.create() {
+            Ok(reader) => {
+                self.reader = Some(reader);
+                Ok(true)
+            },
+            Err(why) => {
+                Err(why)
             }
         }
     }
@@ -221,6 +231,14 @@ impl WrappedDataSetReader {
             reader: None
         }
     }
+
+    fn create(&self) -> Result<DataSetReader, String> {
+        let mut uninitialized = UninitializedDataSetReader {
+            dataset_directory: self.dataset_directory.clone()
+        };
+
+        uninitialized.initialize()
+    }
 }
 
 lazy_static! {
@@ -230,21 +248,7 @@ lazy_static! {
 }
 
 pub fn velocity_at(point: &Point) -> Velocity {
-    let result = match READER.lock().unwrap().get() {
-        Ok(mut reader) => {
-            Ok(reader.velocity_at(&point))
-        },
-        Err(why) => {
-            Err(why)
-        }
-    };
+    let result = READER.lock().unwrap().velocity_at(&point);
 
-    match result {
-        Ok(vel) => {
-            vel.unwrap()
-        },
-        Err(why) => {
-            panic!(why)
-        }
-    }
+    result.unwrap()
 }

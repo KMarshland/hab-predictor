@@ -13,6 +13,7 @@ extern crate serde_json;
 
 use chrono::prelude::*;
 
+#[macro_use]
 pub mod predictor;
 
 ruby! {

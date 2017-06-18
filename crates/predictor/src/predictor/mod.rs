@@ -1,3 +1,6 @@
+#[macro_use]
+pub mod macros;
+
 pub mod grib_reader;
 pub mod predictor;
 pub mod point;
