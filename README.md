@@ -8,6 +8,7 @@ Note that the readme below reflects the plans for the predictor, not what's curr
 This is where you may make a prediction. 
 
 **Required Parameters**
+
 | Parameter | Type    | Description                                                    |
 |-----------|---------|----------------------------------------------------------------|
 | lat       | float   | Launch latitude                                                |
