@@ -12,11 +12,36 @@ namespace :prediction do
   end
 
   task :reconvert => :environment do
-    # delete old versions
-    Dir.entries(Rails.root.join('lib', 'data', folder.to_s)).each do |dir|
-      if dir =~ /^gfs/ && File.directory?(Rails.root.join('lib', 'data', folder.to_s, dir))
-        FileUtils.rm_rf(Rails.root.join('lib', 'data', folder.to_s, dir))
+    # delete first old version
+    folder_dir = Rails.root.join('lib', 'data', folder.to_s)
+    Dir.entries(folder_dir).each do |dir|
+      data_dir = folder_dir.join(dir)
+      next unless dir =~ /^gfs/ && File.directory?(data_dir)
+
+      Dir.entries(data_dir).each do |subdir|
+        dir = data_dir.join(subdir)
+        next unless File.directory?(dir)
+
+        puts "Removing #{dir}"
+        FileUtils.rm_rf(dir)
+
+        break
       end
+
+      break
+    end
+
+    # reconvert
+    GribConvert::convert_folder Rails.root.join('lib', 'data', folder.to_s).to_s
+  end
+
+  task :reconvert_all => :environment do
+    # delete ALL old versions
+    Dir.entries(Rails.root.join('lib', 'data', folder.to_s)).each do |dir|
+      next unless dir =~ /^gfs/ && File.directory?(Rails.root.join('lib', 'data', folder.to_s, dir))
+
+      puts "Removing #{folder}"
+      FileUtils.rm_rf(Rails.root.join('lib', 'data', folder.to_s, dir))
     end
 
     # reconvert
