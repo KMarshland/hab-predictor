@@ -131,7 +131,7 @@ impl UninitializedDataSetReader {
 
                 // TODO: enforce reader sort order
 
-                println!("Readers initialized: {}ms", UTC::now().signed_duration_since(start_time).num_milliseconds());
+                // println!("Readers initialized: {}ms", UTC::now().signed_duration_since(start_time).num_milliseconds());
 
                 readers
             }
