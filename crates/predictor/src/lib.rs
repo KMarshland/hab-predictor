@@ -11,8 +11,11 @@ extern crate serde_derive;
 extern crate serde;
 extern crate serde_json;
 
+extern crate lru_cache;
+
 use chrono::prelude::*;
 
+#[macro_use]
 pub mod predictor;
 
 ruby! {

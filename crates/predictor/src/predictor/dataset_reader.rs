@@ -2,7 +2,6 @@ use std::sync::Mutex;
 use std::fs;
 use std::env;
 use std::fs::DirEntry;
-use std::mem;
 use chrono::prelude::*;
 use predictor::point::*;
 use predictor::grib_reader::*;
@@ -44,7 +43,7 @@ impl UninitializedDataSetReader {
                             }
                         }
                         Err(_) => {
-                            //                            println!("Warning: junk file/folder in lib/data: {}", name)
+                            // println!("Warning: junk file/folder in lib/data: {}", name)
                         },
                     }
                 }
@@ -117,16 +116,16 @@ impl UninitializedDataSetReader {
                 };
 
                 let mut readers : Vec<Box<GribReader>> = vec![];
+
                 for file in bucket {
                     let path = file.path();
 
                     let extension = path.extension().unwrap().to_str().unwrap();
 
                     if extension == "grb2" {
-                        // println!("{}, extension {}", path.display(), extension);
+                        let reader = GribReader::new(path.to_str().unwrap().to_string());
 
-                        // TODO: multithread this asshole
-                        readers.push(Box::new(GribReader::new(path.to_str().unwrap().to_string())));
+                        readers.push(Box::new(reader));
                     }
                 }
 
@@ -142,71 +141,88 @@ impl UninitializedDataSetReader {
 
 impl DataSetReader {
 
-    pub fn velocity_at(&mut self, point: &Point) -> Velocity {
-        // TODO: Make it check the cache here
-
-        let reader = self.get_reader(point);
-
-        reader.velocity_at(point)
+    pub fn velocity_at(&mut self, point: &Point) -> Result<Velocity, String> {
+        match self.get_reader(point) {
+            Ok(reader) => {
+                reader.velocity_at(point)
+            },
+            Err(why) => Err(why)
+        }
     }
 
-    fn get_reader(&mut self, point: &Point) -> &Box<GribReader> {
+    fn get_reader(&mut self, point: &Point) -> Result<&mut Box<GribReader>, String> {
         // TODO: implement a binary search tree or alternative fast lookup
 
-        let mut best_reader = &self.grib_readers[0];
+        let readers = &mut self.grib_readers;
 
-        for i in 1..self.grib_readers.len() {
-            let reader = &self.grib_readers[i];
+        if readers.is_empty() {
+            return Err(String::from("No grib readers"));
+        }
+
+        let mut best_index = 0;
+        let mut best_seconds = {
+            let best_reader = &readers[0];
+            best_reader.time.signed_duration_since(point.time).num_seconds().abs()
+        };
+
+        for i in 1..readers.len() {
+            let reader = &mut readers[i];
+
             let abs_seconds = reader.time.signed_duration_since(point.time).num_seconds().abs();
-            let best_seconds = best_reader.time.signed_duration_since(point.time).num_seconds().abs();
 
             if abs_seconds < best_seconds {
-                best_reader = reader;
+                best_index = i;
+                best_seconds = abs_seconds;
             }
         }
 
-        best_reader
+        Ok(&mut readers[best_index])
     }
 }
 
 struct WrappedDataSetReader {
     dataset_directory: String,
-    reader: Option<Box<DataSetReader>>
+    reader: Option<DataSetReader>
 }
 
 impl WrappedDataSetReader {
 
-    /*
-     * Function to get the dataset reader
-     * If none exists, it will try initializing one
-     */
-    pub fn get(&mut self) -> Result<Box<DataSetReader>, String> {
-        let reader = mem::replace(&mut self.reader, None);
+    pub fn velocity_at(&mut self, point: &Point) -> Result<Velocity, String> {
+        match self.initialize_reader() {
+            Ok(_) => {
+                // take the reader temporarily
+                let reader = self.reader.take();
 
-        match reader {
-            Some(dataset_box) => {
-                Ok(dataset_box)
+                // unwrap will not panic, because we already know it has initialized properly
+                let mut unwrapped = reader.unwrap();
+
+                let velocity = unwrapped.velocity_at(point);
+
+                // replace it
+                self.reader = Some(unwrapped);
+
+                velocity
             },
+            Err(why) => Err(why)
+        }
+    }
 
-            None => {
-                let mut uninitialized = UninitializedDataSetReader {
-                    dataset_directory: self.dataset_directory.clone()
-                };
+    /*
+     * Function to create a new dataset reader if needed
+     */
+    fn initialize_reader(&mut self) -> Result<bool, String> {
 
-                let initialized = uninitialized.initialize();
+        if !self.reader.is_none() {
+            return Ok(true);
+        }
 
-                match initialized {
-                    Ok(initialized_reader) => {
-                        let boxed = Box::new(initialized_reader);
-
-                        self.reader = Some(boxed);
-
-                        self.get()
-                    },
-                    Err(why) => {
-                        return Err(why)
-                    }
-                }
+        match self.create() {
+            Ok(reader) => {
+                self.reader = Some(reader);
+                Ok(true)
+            },
+            Err(why) => {
+                Err(why)
             }
         }
     }
@@ -217,6 +233,14 @@ impl WrappedDataSetReader {
             reader: None
         }
     }
+
+    fn create(&self) -> Result<DataSetReader, String> {
+        let mut uninitialized = UninitializedDataSetReader {
+            dataset_directory: self.dataset_directory.clone()
+        };
+
+        uninitialized.initialize()
+    }
 }
 
 lazy_static! {
@@ -226,21 +250,7 @@ lazy_static! {
 }
 
 pub fn velocity_at(point: &Point) -> Velocity {
-    let result = match READER.lock().unwrap().get() {
-        Ok(mut reader) => {
-            Ok(reader.velocity_at(&point))
-        },
-        Err(why) => {
-            Err(why)
-        }
-    };
+    let result = READER.lock().unwrap().velocity_at(&point);
 
-    match result {
-        Ok(mut vel) => {
-            vel
-        },
-        Err(why) => {
-            panic!(why)
-        }
-    }
+    result.unwrap()
 }

@@ -162,7 +162,7 @@ fn valbal_predict(params : ValBalPredictorParams) -> Result<Prediction, String> 
     let mut positions : Vec<Point> = vec![];
 
     let launch_time = current.clone().time;
-    let end_time = launch_time + Duration::seconds(params.duration as i64);
+    let end_time = launch_time + Duration::minutes(params.duration as i64);
 
     while current.time < end_time {
         let velocity = velocity_at(&current);

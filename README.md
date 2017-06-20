@@ -8,6 +8,7 @@ Note that the readme below reflects the plans for the predictor, not what's curr
 This is where you may make a prediction. 
 
 **Required Parameters**
+
 | Parameter | Type    | Description                                                    |
 |-----------|---------|----------------------------------------------------------------|
 | lat       | float   | Launch latitude                                                |
@@ -109,9 +110,27 @@ If successful, the API will respond with a 200 and a response of the following f
 }
 ```
 
-## Installing
-The simplest way to get it up and running will be to use the Docker Container once that's written. 
-Otherwise, install Rails and Rust, then run `rails s`.  
+## Development
+The simplest way to get it up and running will is to use the Docker Container. 
+Otherwise: 
+1. install Rails and Rust
+2. `bundle install`
+3. Install the [ECMWF GRIB API](https://software.ecmwf.int/wiki/display/GRIB/GRIB+API+CMake+installation)
+4. Download the data
+5. Run `foreman start -f Procfile.dev` to start the servers  
+
+### Downloading the data
+The predictor will fail with no data. 
+To download the data, run `bundle exec rake prediction download_sync`.
+This both downloads it (takes approximately a minute with a fast internet connection) and preprocesses the data.
+Preprocessing can take up to an hour; however, you can start testing the api long before.
+Since it processes the data in chronological order, at a rate of approximately 6 hours worth of data per minute, if you're running a prediction close to the current time it will likely have finished processing the data in time 
+
+### Rust development
+The rust code all lives in the `crates` directory. 
+After you change it, you will need to recompile. 
+This happens automatically when you start the servers, but since much the time you'll just want to compile it manually. 
+You can do so by running `rake build`
 
 ## The nitty-gritty
 ### Profiles

@@ -3,9 +3,10 @@ use std::fs::File;
 use std::mem;
 use chrono::prelude::*;
 use predictor::point::*;
+use lru_cache::LruCache;
 
 const CELL_SIZE : f32 = 25.0; // Make sure this matches the grid size in grib_convert.rb
-const DATA_RESOLUTION : f32 = 0.5;
+const CACHE_SIZE : usize = 10_000; // in velocity tuples
 
 struct UnprocessedGribReader {
     path: String
@@ -22,7 +23,9 @@ pub struct GribReader {
     reference_time: ReferenceTime,
     pub time: DateTime<UTC>,
 
-    path: String
+    path: String,
+
+    cache: LruCache<u32, Velocity>
 }
 
 enum ReferenceTime {
@@ -36,8 +39,14 @@ enum ReferenceTime {
 struct GribLine {
     lat : f32,
     lon : f32,
-    value : f32,
-    key : char
+    u : f32,
+    v : f32
+}
+
+enum GribReadError {
+    EOF,
+    Corrupted(usize),
+    IO(String)
 }
 
 impl GribReader {
@@ -50,27 +59,10 @@ impl GribReader {
         reader.read().unwrap()
     }
 
-    pub fn velocity_at(&self, point: &Point) -> Velocity {
-        let isobaric_hpa = 1013.25*(1.0 - point.altitude/44330.0).powf(5.255);
+    pub fn velocity_at(&mut self, point: &Point) -> Result<Velocity, String> {
 
-        //TODO: make a fast lookup structure for this
-        let levels = [2, 3, 5, 7, 10, 20, 30, 50, 70, 100, 150, 200, 250, 300, 350, 400, 450, 500, 550, 600, 650, 700, 750, 800, 850, 900, 925, 950, 975, 1000];
-        let mut best_level : i32 = 1;
-        let mut best_level_diff : f32 = (isobaric_hpa - (best_level as f32)).abs();
-
-        for level_ref in levels.iter() {
-            let level = *level_ref as i32;
-            let diff = (isobaric_hpa - (level as f32)).abs();
-
-            if diff < best_level_diff {
-                best_level = level;
-                best_level_diff = diff;
-            }
-        }
-
-        // Round to nearest DATA_RESOLUTION
-        let lat = (point.latitude / DATA_RESOLUTION).round() * DATA_RESOLUTION;
-        let lon = (point.longitude / DATA_RESOLUTION).round() * DATA_RESOLUTION + 180.0;
+        // figure out the proper file to look in
+        let aligned = point.align();
 
         let grid_lat = (point.latitude / CELL_SIZE).floor() * CELL_SIZE;
         let grid_lon = ((point.longitude + 180.0) / CELL_SIZE).floor() * CELL_SIZE;
@@ -78,63 +70,81 @@ impl GribReader {
         let proper_filename = {
             let mut parts = self.path.split('.');
             parts.next().unwrap().to_string() +
-                "/L" + best_level.to_string().as_str() +
+                "/L" + aligned.level.to_string().as_str() +
                 "/C" + grid_lat.to_string().as_str() + "_" + grid_lon.to_string().as_str() +
                 ".gribp"
         };
 
-        GribReader::scan_file(proper_filename, lat, lon)
+        // check cache
+        {
+            let ref mut cache = self.cache;
+
+            match cache.get_mut(&aligned.key()) {
+                Some(vel) => {
+                    return Ok(vel.clone())
+                },
+                None => {}
+            }
+        }
+
+        self.scan_file(proper_filename, aligned)
     }
 
-    fn scan_file(filename : String, lat : f32, lon : f32) -> Velocity {
+    /*
+     *
+     */
+    fn scan_file(&mut self, filename : String, aligned : AlignedPoint) -> Result<Velocity, String> {
         let name = &filename;
         let mut file = &mut File::open(name).unwrap();
 
         let mut u : f32 = 0.0;
         let mut v : f32 = 0.0;
 
-        let mut has_u = false;
-        let mut has_v = false;
-
+        let mut data_found = false;
 
         loop {
             match GribReader::read_line(&mut file) {
-                Some(line) => {
+                Ok(line) => {
+                    if aligned.latitude == line.lat && aligned.longitude == line.lon {
+                        u = line.u;
+                        v = line.v;
+                        data_found = true;
+                    }
 
-                    if lat == line.lat && lon == line.lon {
-                        match line.key {
-                            'u' => {
-                                u = line.value;
-                                has_u = true;
-                            },
-                            'v' => {
-                                v = line.value;
-                                has_v = true;
-                            },
-                            _ => {
-                                println!("Unknown key: {}", line.key)
-                            }
-                        };
-
-                        if has_u && has_v {
-                            break;
+                    self.cache.insert(
+                        AlignedPoint::cache_key(aligned.level, line.lat, line.lon),
+                        Velocity {
+                            north: line.u,
+                            east: line.v,
+                            vertical: 0.0
+                        }
+                    );
+                }
+                Err(why) => {
+                    match why {
+                        GribReadError::EOF => {
+                            break; // you're done!
+                        },
+                        GribReadError::Corrupted(_) => {
+                            return Err(String::from("Invalid number of bytes in file"));
+                        },
+                        GribReadError::IO(why) => {
+                            return Err(why);
                         }
                     }
-                }
-                None => {
-                    println!("Trying to find: {},{}", lat, lon);
-                    println!("Searching in {}", name);
-
-                    panic!("Reached end without finding data");
-                }
+                },
             }
         }
 
-        Velocity {
+        if !data_found {
+            return Err(String::from("Datapoint not found"));
+        }
+
+        Ok(Velocity {
             north: u,
             east: v,
             vertical: 0.0
-        }
+        })
     }
 
     /*
@@ -142,36 +152,66 @@ impl GribReader {
      * All values except for the key are IEEE754 formatted floats
      * The key is just a byte
      */
-    fn read_line(file: &mut File) -> Option<GribLine> {
+    fn read_line(file: &mut File) -> Result<GribLine, GribReadError> {
 
-        let mut buffer = [0; 13];
+        let mut buffer = [0; 16];
 
         match file.read(&mut buffer) {
             Ok(bytes) => {
                 if bytes == 0 { //EOF
-                    return None;
+                    return Err(GribReadError::EOF);
                 }
 
-                if bytes != 13 {
-                    panic!("Invalid number of bytes: ".to_string() + bytes.to_string().as_str());
+                if bytes != 16 {
+                    return Err(GribReadError::Corrupted(bytes));
                 }
             },
             Err(why) => {
-                println!("{:?}", why);
-                return None;
+                return Err(GribReadError::IO(why.to_string()));
             }
         }
 
-        let lat = bytes_to_f32(buffer[0..4].to_vec());
-        let lon = bytes_to_f32(buffer[4..8].to_vec());
-        let val = bytes_to_f32(buffer[8..12].to_vec());
-        let key = buffer[12] as char;
+        let lat = match bytes_to_f32(buffer[0..4].to_vec()) {
+            Ok(val) => {
+                val
+            },
+            Err(why) => {
+                return Err(GribReadError::IO(why))
+            }
+        };
 
-        Some(GribLine {
+        let lon = match bytes_to_f32(buffer[4..8].to_vec()) {
+            Ok(val) => {
+                val
+            },
+            Err(why) => {
+                return Err(GribReadError::IO(why))
+            }
+        };
+
+        let u = match bytes_to_f32(buffer[8..12].to_vec()) {
+            Ok(val) => {
+                val
+            },
+            Err(why) => {
+                return Err(GribReadError::IO(why))
+            }
+        };
+
+        let v = match bytes_to_f32(buffer[12..16].to_vec()) {
+            Ok(val) => {
+                val
+            },
+            Err(why) => {
+                return Err(GribReadError::IO(why))
+            }
+        };
+
+        Ok(GribLine {
             lat: lat,
             lon: lon,
-            value: val,
-            key: key
+            u: u,
+            v: v
         })
     }
 }
@@ -213,17 +253,17 @@ impl ProcessingGribReader {
          */
 
         // 1-4. GRIB
-        buf = self.read_n(4);
+        buf = result_or_return!(self.read_n(4));
 
         if buf[0] != 'G' as u8 || buf[1] != 'R' as u8 || buf[2] != 'I' as u8 || buf[3] != 'B' as u8 {
             return Result::Err(String::from("Incorrect header (expected GRIB)"))
         }
 
         // 5-7. Total length
-        self.read_n(3);
+        result_or_return!(self.read_n(3));
 
         // 8. Edition number
-        buf = self.read_n(1);
+        buf = result_or_return!(self.read_n(1));
         let edition = buf[0];
 
         if edition != 2 {
@@ -231,7 +271,7 @@ impl ProcessingGribReader {
         }
 
         // 9-16. Total length of GRIB message in octets (All sections)
-        self.read_as_u64(8);
+        result_or_return!(self.read_n(8));
 
 
         /*
@@ -239,36 +279,36 @@ impl ProcessingGribReader {
          */
 
         // 1-4. Length of the section in octets (21 or N)
-        let section_1_length = self.read_as_u64(4);
+        let section_1_length = result_or_return!(self.read_as_u64(4));
         if section_1_length < 21 {
             return Result::Err(String::from("Section 1 too short (length: ".to_string() +
                 section_1_length.to_string().as_str() + ")"))
         }
 
         // 5. Number of the section (1)
-        let section_1_number = self.read_as_u64(1);
+        let section_1_number = result_or_return!(self.read_as_u64(1));
         if section_1_number != 1 {
             return Result::Err(String::from("Incorrect section number (expected 1)"))
         }
 
         // 6-7. Identification of originating/generating center
-        self.read_n(2);
+        result_or_return!(self.read_n(2));
 
         // 8-9. Identification of originating/generating subcenter
-        self.read_n(2);
+        result_or_return!(self.read_n(2));
 
         // 10. GRIB master tables version number (currently 2)
-        let table_version_number = self.read_as_u64(1);
+        let table_version_number = result_or_return!(self.read_as_u64(1));
         if table_version_number != 2 {
             return Result::Err(String::from("Incorrect GRIB master tables version (expected 2, got ".to_string() +
                 table_version_number.to_string().as_str() + ")"));
         }
 
         // 11. Version number of GRIB local tables used to augment Master Tables
-        self.read_n(1);
+        result_or_return!(self.read_n(1));
 
         // 12. Significance of reference time
-        let reference_time = match self.read_as_u64(1) {
+        let reference_time = match result_or_return!(self.read_as_u64(1)) {
             0 => ReferenceTime::Analysis,
             1 => ReferenceTime::StartOfForecast,
             2 => ReferenceTime::VerifyingTimeOfForecast,
@@ -277,36 +317,37 @@ impl ProcessingGribReader {
         };
 
         // 13-14. Year (4 digits)
-        let year = self.read_as_u64(2);
+        let year = result_or_return!(self.read_as_u64(2));
 
         // 15. Month
-        let month = self.read_as_u64(1);
+        let month = result_or_return!(self.read_as_u64(1));
 
         // 16. Day
-        let day = self.read_as_u64(1);
+        let day = result_or_return!(self.read_as_u64(1));
 
         // 17. Hour
-        let hour = self.read_as_u64(1);
+        let hour = result_or_return!(self.read_as_u64(1));
 
         // 18. Minute
-        let minute = self.read_as_u64(1);
+        let minute = result_or_return!(self.read_as_u64(1));
 
         // 19. Second
-        let second = self.read_as_u64(1);
+        let second = result_or_return!(self.read_as_u64(1));
 
         let time = UTC.ymd(year as i32, month as u32, day as u32).and_hms(hour as u32, minute as u32, second as u32);
 
         Ok(GribReader {
             reference_time: reference_time,
             time: time,
-            path: self.path.clone()
+            path: self.path.clone(),
+            cache: LruCache::new(CACHE_SIZE)
         })
     }
 
-    fn read_n(&mut self, number_of_bytes : u64) -> Vec<u8> {
+    fn read_n(&mut self, number_of_bytes : u64) -> Result<Vec<u8>, String> {
         let mut buf = vec![];
         if number_of_bytes <= 0 {
-            return buf;
+            return Ok(buf);
         }
 
         {
@@ -315,23 +356,23 @@ impl ProcessingGribReader {
         }
 
         if buf.len() as u64 != number_of_bytes {
-            panic!("Only read ".to_string() + buf.len().to_string().as_str() +
+            return Err("Only read ".to_string() + buf.len().to_string().as_str() +
                 " bytes, expected to read " + number_of_bytes.to_string().as_str())
         }
 
         self.bytes_read += number_of_bytes;
 
-        buf
+        Ok(buf)
     }
 
-    fn read_as_u64(&mut self, number_of_bytes : u64) -> u64 {
+    fn read_as_u64(&mut self, number_of_bytes : u64) -> Result<u64, String> {
         if number_of_bytes <= 0 {
-            return 0;
+            return Ok(0);
         }
 
-        let buf = self.read_n(number_of_bytes);
+        let buf = result_or_return!(self.read_n(number_of_bytes));
 
-        bytes_to_u64(buf, number_of_bytes)
+        Ok(bytes_to_u64(buf, number_of_bytes))
     }
 
     fn get_file(&mut self) -> &mut File {
@@ -349,13 +390,13 @@ fn bytes_to_u64(bytes : Vec<u8>, number_of_bytes : u64) -> u64 {
     number
 }
 
-fn bytes_to_f32(bytes : Vec<u8>) -> f32 {
+fn bytes_to_f32(bytes : Vec<u8>) -> Result<f32, String> {
     if bytes.len() != 4 {
-        panic!("Invalid byte length ".to_string() + bytes.len().to_string().as_str())
+        return Err("Invalid byte length ".to_string() + bytes.len().to_string().as_str())
     }
 
     let num = bytes_to_u64(bytes, 4) as u32;
 
-    unsafe {mem::transmute(num)}
+    Ok(unsafe {mem::transmute(num)})
 }
 

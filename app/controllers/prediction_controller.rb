@@ -3,29 +3,41 @@ class PredictionController < ApplicationController
   require 'prediction/prediction'
 
   def predict
-    if params[:profile] == 'valbal'
-      prediction = Predictor.predict(
-        lat: params[:lat].to_f,
-        lon: params[:lon].to_f,
-        altitude: params[:altitude].to_f,
-        profile: params[:profile],
-        duration: params[:duration],
-        time: Time.strptime(params[:time], '%s')
-      )
-    elsif params[:profile] == 'standard'
-      prediction = Predictor.predict(
-        lat: params[:lat].to_f,
-        lon: params[:lon].to_f,
-        altitude: params[:altitude].to_f,
-        profile: params[:profile],
-        time: Time.strptime(params[:time], '%s'),
-        burst_altitude: params[:burst_altitude].to_f,
-        ascent_rate: params[:ascent_rate].to_f,
-        descent_rate: params[:descent_rate].to_f
-      )
+    required_params = [:lat, :lon, :altitude, :time, :profile]
+
+    case params[:profile]
+      when 'standard'
+        required_params.concat [:ascent_rate, :descent_rate, :burst_altitude]
+      when 'valbal'
+        required_params.concat [:duration]
+      else
+        return render json: {
+            success: false,
+            error: "Invalid profile '#{params[:profile]}'"
+        }, status: 400
     end
 
-    render json: prediction
+    parameters = {}
+    missing = []
+    required_params.each do |key|
+      parameters[key] = params[key]
+      missing << key if params[key].blank?
+    end
+
+    if missing.any?
+      return render json: {
+          success: false,
+          error: "Missing required parameters: #{missing.join(', ')}"
+      }, status: 400
+    end
+
+    parameters[:time] = DateTime.strptime(parameters[:time], '%s')
+    [:lat, :lon, :altitude, :ascent_rate, :descent_rate, :burst_altitude, :duration].each do |key|
+      parameters[key] = parameters[key].to_f if parameters[:key].present?
+    end
+
+    render json: Predictor.predict(**parameters)
+
   rescue RuntimeError => e
     NewRelic::Agent.notice_error e
     render json: {
