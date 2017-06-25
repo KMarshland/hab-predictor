@@ -199,3 +199,5 @@ RUN chmod +x ./deploy/boot.sh && \
 
 # Stay as root -- the start script will deescalate its own permissions
 #USER root
+
+CMD ./deploy/start_puma.sh

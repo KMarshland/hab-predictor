@@ -2,6 +2,8 @@
 
 echo Deploying as $(whoami)
 
+sed -i "s/80/${PORT:-80}/" /etc/nginx/nginx.conf
+
 service nginx start
 service cron start
 whenever -w
