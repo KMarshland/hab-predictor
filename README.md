@@ -111,7 +111,8 @@ If successful, the API will respond with a 200 and a response of the following f
 ```
 
 ## Development
-The simplest way to get it up and running will is to use the Docker Container. 
+The simplest way to get it up and running will is to use the Docker Container by running `docker-compose up`.
+
 Otherwise: 
 1. install Rails and Rust
 2. `bundle install`
