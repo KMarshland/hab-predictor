@@ -152,6 +152,8 @@ RUN chown nginx /var/log/nginx/error.log
 RUN chown -R nginx /var/run/nginx
 RUN chmod 777 /var/run/nginx
 
+EXPOSE 80
+
 # Add config files (optimizing cache)
 WORKDIR $APP_HOME
 
@@ -200,4 +202,4 @@ RUN chmod +x ./deploy/boot.sh && \
 # Stay as root -- the start script will deescalate its own permissions
 #USER root
 
-CMD ./deploy/start_puma.sh
+CMD ./deploy/boot.sh
