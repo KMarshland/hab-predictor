@@ -1,6 +1,7 @@
 use chrono::prelude::*;
 use chrono::Duration;
 use std::ops::Add;
+use std::ops::Mul;
 use std::f32;
 use serde::ser::{SerializeMap};
 
@@ -37,6 +38,21 @@ pub struct AlignedPoint {
     pub latitude: f32,
     pub longitude: f32,
     pub level: i32
+}
+
+/*
+ * Directions in which a point can be aligned
+ */
+pub struct Alignment {
+    pub ne : AlignedPoint,
+    pub nw : AlignedPoint,
+    pub se : AlignedPoint,
+    pub sw : AlignedPoint,
+
+    pub percent_north : f32,
+    pub percent_south : f32,
+    pub percent_east : f32,
+    pub percent_west : f32
 }
 
 /*
@@ -79,7 +95,7 @@ impl Point {
     /*
      * Converts the point to an aligned point
      */
-    pub fn align(&self) -> AlignedPoint {
+    pub fn align(&self) -> Alignment {
         let isobaric_hpa = 1013.25*(1.0 - self.altitude/44330.0).powf(5.255);
 
         //TODO: make a fast lookup structure for this
@@ -97,15 +113,64 @@ impl Point {
             }
         }
 
-        // Round to nearest DATA_RESOLUTION
-        let lat = (self.latitude / DATA_RESOLUTION).round() * DATA_RESOLUTION;
-        let lon = (self.longitude / DATA_RESOLUTION).round() * DATA_RESOLUTION + 180.0;
+        // Round to directional DATA_RESOLUTION
+        let mangled_lat = self.latitude / DATA_RESOLUTION;
+        let mangled_lon = self.longitude / DATA_RESOLUTION;
 
-        AlignedPoint {
-            latitude: lat,
-            longitude: lon,
-            level: best_level
+        let percent_north = mangled_lat.ceil() - mangled_lat.floor();
+        let percent_east = mangled_lon.ceil() - mangled_lon.floor();
+
+        Alignment {
+            ne: AlignedPoint {
+                latitude: Point::align_lat(mangled_lat.ceil()),
+                longitude: Point::align_lon(mangled_lon.ceil()),
+                level: best_level
+            },
+            nw: AlignedPoint {
+                latitude: Point::align_lat(mangled_lat.ceil()),
+                longitude: Point::align_lon(mangled_lon.floor()),
+                level: best_level
+            },
+            se: AlignedPoint {
+                latitude: Point::align_lat(mangled_lat.floor()),
+                longitude: Point::align_lon(mangled_lon.ceil()),
+                level: best_level
+            },
+            sw: AlignedPoint {
+                latitude: Point::align_lat(mangled_lat.floor()),
+                longitude: Point::align_lon(mangled_lon.floor()),
+                level: best_level
+            },
+            percent_north: percent_north,
+            percent_south: 1.0 - percent_north,
+            percent_east: percent_east,
+            percent_west: 1.0 - percent_east
         }
+
+    }
+
+    fn align_lat(rounded : f32) -> f32 {
+        let mut lat = rounded * DATA_RESOLUTION;
+
+        if lat > 90.0 {
+            lat = 90.0;
+        } else if lat < -90.0 {
+            lat = -90.0
+        }
+
+        return lat
+    }
+
+    fn align_lon(rounded : f32) -> f32 {
+        let mut lon = rounded * DATA_RESOLUTION + 180.0;
+
+        if lon >= 360.0 {
+            lon -= 360.0;
+        } else if lon < 0.0 {
+            lon += 360.0;
+        }
+
+        return lon
     }
 }
 
@@ -160,6 +225,18 @@ impl<'a> Add<&'a Velocity> for Velocity {
             north: self.north + other.north,
             east: self.east + other.east,
             vertical: self.vertical + other.vertical
+        }
+    }
+}
+
+impl Mul<f32> for Velocity {
+    type Output = Velocity;
+
+    fn mul(self, factor: f32) -> Velocity {
+        Velocity {
+            north: self.north * factor,
+            east: self.east * factor,
+            vertical: self.vertical * factor
         }
     }
 }

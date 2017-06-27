@@ -59,22 +59,29 @@ impl GribReader {
         reader.read().unwrap()
     }
 
+    /*
+     * Returns the interpolated velocity at a given point
+     */
     pub fn velocity_at(&mut self, point: &Point) -> Result<Velocity, String> {
 
-        // figure out the proper file to look in
+        // get the four points to interpolate between
         let aligned = point.align();
+        let ne = result_or_return!(self.velocity_at_aligned(&aligned.ne));
+        let nw = result_or_return!(self.velocity_at_aligned(&aligned.nw));
+        let se = result_or_return!(self.velocity_at_aligned(&aligned.se));
+        let sw = result_or_return!(self.velocity_at_aligned(&aligned.sw));
 
-        let grid_lat = (point.latitude / CELL_SIZE).floor() * CELL_SIZE;
-        let grid_lon = ((point.longitude + 180.0) / CELL_SIZE).floor() * CELL_SIZE;
+        // lerp lerp lerp
+        Ok(
+            (ne * aligned.percent_east + &(nw * aligned.percent_west)) * aligned.percent_north +
+            &((se * aligned.percent_east + &(sw * aligned.percent_west)) * aligned.percent_south)
+        )
+    }
 
-        let proper_filename = {
-            let mut parts = self.path.split('.');
-            parts.next().unwrap().to_string() +
-                "/L" + aligned.level.to_string().as_str() +
-                "/C" + grid_lat.to_string().as_str() + "_" + grid_lon.to_string().as_str() +
-                ".gribp"
-        };
-
+    /*
+     * Returns the uninterpolated velocity at an aligned point
+     */
+    fn velocity_at_aligned(&mut self, aligned: &AlignedPoint) -> Result<Velocity, String> {
         // check cache
         {
             let ref mut cache = self.cache;
@@ -87,13 +94,24 @@ impl GribReader {
             }
         }
 
+        let grid_lat = (aligned.latitude / CELL_SIZE).floor() * CELL_SIZE;
+        let grid_lon = ((aligned.longitude + 180.0) / CELL_SIZE).floor() * CELL_SIZE;
+
+        let proper_filename = {
+            let mut parts = self.path.split('.');
+            parts.next().unwrap().to_string() +
+                "/L" + aligned.level.to_string().as_str() +
+                "/C" + grid_lat.to_string().as_str() + "_" + grid_lon.to_string().as_str() +
+                ".gribp"
+        };
+
         self.scan_file(proper_filename, aligned)
     }
 
     /*
      *
      */
-    fn scan_file(&mut self, filename : String, aligned : AlignedPoint) -> Result<Velocity, String> {
+    fn scan_file(&mut self, filename : String, aligned : &AlignedPoint) -> Result<Velocity, String> {
         let name = &filename;
         let mut file = &mut File::open(name).unwrap();
 
