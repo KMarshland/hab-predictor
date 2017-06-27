@@ -180,11 +180,13 @@ impl<'a> Add<&'a Velocity> for Point {
     fn add(self, velocity: &'a Velocity) -> Point {
         Point {
             latitude: {
-                self.latitude  + (velocity.north*INTEGRAL_DURATION / EARTH_RADIUS) * (180.0 / f32::consts::PI)
+                self.latitude + (velocity.north*INTEGRAL_DURATION / EARTH_RADIUS) * (180.0 / f32::consts::PI)
             },
             longitude: {
-                bound(self.longitude + (velocity.east*INTEGRAL_DURATION / EARTH_RADIUS) *
-                    (180.0 / f32::consts::PI) / f32::cos(self.latitude * f32::consts::PI/180.0))
+                bound(
+                    self.longitude + (velocity.east*INTEGRAL_DURATION / EARTH_RADIUS) *
+                        (180.0 / f32::consts::PI) / f32::cos(self.latitude * f32::consts::PI/180.0)
+                )
             },
             altitude: {
                 self.altitude + velocity.vertical * INTEGRAL_DURATION
@@ -210,11 +212,15 @@ impl AlignedPoint {
         // each of these parts is converted to a u32
         // WARNING: if any has a value greater than 1023 this will have cache collisions
 
-        level as u32 +
-            (((latitude + 90.0)/DATA_RESOLUTION) as u32) << 10 +
-            ((longitude/DATA_RESOLUTION) as u32) << 20
+        AlignedPoint::mask(level as f32) +
+            (AlignedPoint::mask((latitude + 90.0)/DATA_RESOLUTION) << 10) +
+            (AlignedPoint::mask(longitude/DATA_RESOLUTION) << 20)
     }
 
+    pub fn mask(num : f32) -> u32 {
+        let mask : u32 = 0b1111111111;
+        (num.trunc() as u32) & mask
+    }
 }
 
 impl<'a> Add<&'a Velocity> for Velocity {

@@ -6,7 +6,7 @@ use predictor::point::*;
 use lru_cache::LruCache;
 
 const CELL_SIZE : f32 = 25.0; // Make sure this matches the grid size in grib_convert.rb
-const CACHE_SIZE : usize = 10_000; // in velocity tuples
+const CACHE_SIZE : usize = 50_000; // in velocity tuples
 
 struct UnprocessedGribReader {
     path: String
