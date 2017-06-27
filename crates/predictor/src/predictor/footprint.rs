@@ -1,3 +1,5 @@
+use rand;
+use rand::distributions::{Normal, IndependentSample};
 use serde_json;
 use predictor::point::*;
 use predictor::predictor::*;
@@ -34,14 +36,18 @@ impl Footprint {
 pub fn calculate_footprint(params : FootprintParams) -> Result<Footprint, String> {
     let mut positions : Vec<Point> = vec![];
 
+    let burst_distribution = Normal::new(params.burst_altitude_mean as f64, params.burst_altitude_std_dev as f64);
+    let ascent_distribution = Normal::new(params.ascent_rate_mean as f64, params.ascent_rate_std_dev as f64);
+    let descent_distribution = Normal::new(params.descent_rate_mean as f64, params.descent_rate_std_dev as f64);
+
     for _ in 0..params.trials {
         let result = predict(PredictorParams {
             launch: params.launch.clone(),
             profile: PredictionProfile::Standard,
 
-            burst_altitude: params.burst_altitude_mean,
-            ascent_rate: params.ascent_rate_mean,
-            descent_rate: params.descent_rate_mean,
+            burst_altitude: burst_distribution.ind_sample(&mut rand::thread_rng()) as f32,
+            ascent_rate: ascent_distribution.ind_sample(&mut rand::thread_rng()) as f32,
+            descent_rate: descent_distribution.ind_sample(&mut rand::thread_rng()) as f32,
 
             duration: 0.0
         });
