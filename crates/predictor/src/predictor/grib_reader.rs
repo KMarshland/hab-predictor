@@ -132,8 +132,8 @@ impl GribReader {
                     self.cache.insert(
                         AlignedPoint::cache_key(aligned.level, line.lat, line.lon),
                         Velocity {
-                            north: line.u,
-                            east: line.v,
+                            east: line.u,
+                            north: line.v,
                             vertical: 0.0
                         }
                     );
@@ -163,8 +163,8 @@ impl GribReader {
         }
 
         Ok(Velocity {
-            north: u,
-            east: v,
+            east: u,
+            north: v,
             vertical: 0.0
         })
     }
