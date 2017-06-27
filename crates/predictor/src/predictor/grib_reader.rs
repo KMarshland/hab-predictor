@@ -74,7 +74,7 @@ impl GribReader {
         // lerp lerp lerp
         Ok(
             (ne * aligned.percent_east + &(nw * aligned.percent_west)) * aligned.percent_north +
-            &((se * aligned.percent_east + &(sw * aligned.percent_west)) * aligned.percent_south)
+                &((se * aligned.percent_east + &(sw * aligned.percent_west)) * aligned.percent_south)
         )
     }
 
@@ -95,7 +95,7 @@ impl GribReader {
         }
 
         let grid_lat = (aligned.latitude / CELL_SIZE).floor() * CELL_SIZE;
-        let grid_lon = ((aligned.longitude + 180.0) / CELL_SIZE).floor() * CELL_SIZE;
+        let grid_lon = (aligned.longitude / CELL_SIZE).floor() * CELL_SIZE;
 
         let proper_filename = {
             let mut parts = self.path.split('.');
@@ -155,6 +155,10 @@ impl GribReader {
         }
 
         if !data_found {
+            println!("Looking for ({}, {}, {}) in {}",
+                     aligned.latitude, aligned.longitude, aligned.level,
+                     filename
+            );
             return Err(String::from("Datapoint not found"));
         }
 
