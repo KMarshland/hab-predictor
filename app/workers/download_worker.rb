@@ -25,7 +25,19 @@ class DownloadWorker
     end
 
     # download it
-    download url
+    remaining_retries = 5
+    begin
+      download url
+    rescue HTTP::ConnectionError => error
+      if remaining_retries <= 0
+        raise error
+      end
+
+      puts "Caught #{error}. Retrying"
+      remaining_retries -= 1
+
+      retry
+    end
   end
 
   def dataset_exists?(url)
