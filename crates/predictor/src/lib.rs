@@ -52,5 +52,31 @@ ruby! {
             }).unwrap().serialize()
 
         }
+
+        def footprint(latitude: f64, longitude: f64, altitude: f64, time: String, burst_altitude_mean: f64, burst_altitude_variance: f64, ascent_rate_mean: f64, ascent_rate_variance: f64, descent_rate_mean: f64, descent_rate_variance: f64, trials: i64) -> String {
+
+            predictor::footprint::calculate_footprint(predictor::footprint::FootprintParams {
+                launch: predictor::point::Point {
+                    latitude: latitude as f32,
+                    longitude: longitude as f32,
+                    altitude: altitude as f32,
+                    time: {
+                        UTC.datetime_from_str(time.as_str(), "%s").unwrap()
+                    }
+                },
+
+                burst_altitude_mean: burst_altitude_mean as f32,
+                burst_altitude_variance: burst_altitude_variance as f32,
+
+                ascent_rate_mean: ascent_rate_mean as f32,
+                ascent_rate_variance: ascent_rate_variance as f32,
+
+                descent_rate_mean: descent_rate_mean as f32,
+                descent_rate_variance: descent_rate_variance as f32,
+
+                trials: trials as u32
+            }).unwrap().serialize()
+
+        }
     }
 }

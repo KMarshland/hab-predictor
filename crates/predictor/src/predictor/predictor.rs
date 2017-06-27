@@ -28,7 +28,6 @@ pub struct PredictorParams {
 /*
  * Only those parameters necessary to run a standard profile prediction
  */
-#[allow(dead_code)]
 struct StandardPredictorParams {
     launch: Point,
 
@@ -41,7 +40,6 @@ struct StandardPredictorParams {
 /*
  * Only those parameters necessary to run a ValBal prediction
  */
-#[allow(dead_code)]
 struct ValBalPredictorParams {
     launch: Point,
 
@@ -59,14 +57,14 @@ pub enum Prediction {
 
 #[derive(Serialize)]
 pub struct StandardPrediction {
-    ascent: Vec<Point>,
-    burst: Point,
-    descent: Vec<Point>
+    pub ascent: Vec<Point>,
+    pub burst: Point,
+    pub descent: Vec<Point>
 }
 
 #[derive(Serialize)]
 pub struct ValBalPrediction {
-    positions: Vec<Point>
+    pub positions: Vec<Point>
 }
 
 impl Prediction {
