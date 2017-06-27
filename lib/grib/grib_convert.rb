@@ -44,7 +44,6 @@ module GribConvert
 
           FileUtils::mkdir_p "#{dir}/#{name.match(/L\d+/).to_s}"
 
-          # TODO: this may actually clobber the some data. We need to check file mode
           file = File.open("#{dir}/#{name}", 'ab')
           file.write contents
 
