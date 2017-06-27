@@ -42,18 +42,18 @@ class Predictor
       ))
     end
 
-    def calculate_footprint(lat:, lon:, altitude:, time:, burst_altitude_mean:, burst_altitude_variance:, ascent_rate_mean:, ascent_rate_variance:, descent_rate_mean:, descent_rate_variance:, trials:)
-      JSON(RustPredictor.calculate_footprint(
+    def footprint(lat:, lon:, altitude:, time:, burst_altitude_mean:, burst_altitude_std_dev:, ascent_rate_mean:, ascent_rate_std_dev:, descent_rate_mean:, descent_rate_std_dev:, trials:)
+      JSON(RustPredictor.footprint(
           lat.to_f,
           lon.to_f,
           altitude.to_f,
           time.to_i.to_s,
           burst_altitude_mean.to_f,
-          burst_altitude_variance.to_f,
+          burst_altitude_std_dev.to_f,
           ascent_rate_mean.to_f,
-          ascent_rate_variance.to_f,
+          ascent_rate_std_dev.to_f,
           descent_rate_mean.to_f,
-          descent_rate_variance.to_f,
+          descent_rate_std_dev.to_f,
           trials.to_i
       ))
     end

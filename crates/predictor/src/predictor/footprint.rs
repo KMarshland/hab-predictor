@@ -9,13 +9,13 @@ pub struct FootprintParams {
     pub launch: Point,
 
     pub burst_altitude_mean : f32,
-    pub burst_altitude_variance : f32,
+    pub burst_altitude_std_dev : f32,
 
     pub ascent_rate_mean : f32,
-    pub ascent_rate_variance : f32,
+    pub ascent_rate_std_dev : f32,
 
     pub descent_rate_mean : f32,
-    pub descent_rate_variance : f32,
+    pub descent_rate_std_dev : f32,
 
     pub trials: u32
 }
