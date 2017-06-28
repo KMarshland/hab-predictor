@@ -79,5 +79,26 @@ ruby! {
             }).unwrap().serialize()
 
         }
+
+        def guidance(latitude: f64, longitude: f64, altitude: f64, time: String, timeout: f64, time_increment: f64, altitude_variance: f64, altitude_increment: f64) -> String {
+        predictor::guidance::guidance(predictor::guidance::GuidanceParams {
+                launch: predictor::point::Point {
+                    latitude: latitude as f32,
+                    longitude: longitude as f32,
+                    altitude: altitude as f32,
+                    time: {
+                        UTC.datetime_from_str(time.as_str(), "%s").unwrap()
+                    }
+                },
+
+                timeout: timeout as f32,
+
+                time_increment: time_increment as f32,
+
+                altitude_variance: altitude_variance as u32,
+                altitude_increment: altitude_increment as u32
+            }).unwrap().serialize()
+        }
+
     }
 }

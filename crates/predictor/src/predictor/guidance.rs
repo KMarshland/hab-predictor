@@ -10,9 +10,12 @@ use predictor::predictor::*;
 pub struct GuidanceParams {
     pub launch : Point,
 
-    pub performance : u32,
-    pub timeout : u32,
-    pub altitude_res : u32
+    pub timeout : f32,
+
+    pub time_increment : f32, // minutes
+
+    pub altitude_variance : u32,
+    pub altitude_increment : u32
 }
 
 #[derive(Serialize)]
@@ -27,7 +30,11 @@ impl Guidance {
 }
 
 pub fn guidance(params : GuidanceParams) -> Result<Guidance, String> {
-    Err(String::from("Yikes"))
+    let positions = result_or_return!(search(params));
+
+    Ok(Guidance {
+        positions: positions
+    })
 }
 /*
  * Struct representing a single element in the queue
@@ -87,7 +94,7 @@ impl Node {
     /*
      * Gets the neighbors of this node by making a prediction
      */
-    fn neighbors(&self) -> Result<Vec<Node>, String> {
+    fn neighbors(&self, params : &GuidanceParams) -> Result<Vec<Node>, String> {
         let prediction = predict(PredictorParams {
             launch: self.location.clone(),
             profile: PredictionProfile::ValBal,
@@ -194,7 +201,7 @@ impl GenerationalPQueue {
     pub fn enqueue(&mut self, node : Node) {
 
         // initialize costs and queues if we need
-        for generation in self.costs.len()..(node.generation + 1) {
+        for _ in self.costs.len()..(node.generation + 1) {
             self.costs.push(0.1);
             self.generations.push(BinaryHeap::new())
         }
@@ -244,15 +251,15 @@ impl GenerationalPQueue {
 /*
  * Does greedy search, starting from the start point and going for timeout seconds
  */
-fn search(start : Point, timeout : u32) -> Result<Vec<Point>, String> {
+fn search(params : GuidanceParams) -> Result<Vec<Point>, String> {
 
-    let start_time = Local::now();
+    let end_time = Local::now() + Duration::seconds(params.timeout as i64);
 
     let mut best_yet : Option<Node> = None;
     let mut best_score = 0.0;
 
     let mut queue = GenerationalPQueue::new();
-    queue.enqueue(Node::from_point(start));
+    queue.enqueue(Node::from_point(params.launch.clone()));
 
     // remember what the next generation is
     let mut next_gen = 0;
@@ -260,10 +267,10 @@ fn search(start : Point, timeout : u32) -> Result<Vec<Point>, String> {
     // a counter that tells you how long it's been since you moved to the next generation
     let mut stagnation = 0;
 
-    while let Option::Some(mut node) = queue.dequeue() {
+    while let Option::Some(node) = queue.dequeue() {
 
         // check timeout
-        if Local::now() > (start_time + Duration::seconds(timeout as i64)) {
+        if Local::now() > end_time {
             break;
         }
 
@@ -288,7 +295,7 @@ fn search(start : Point, timeout : u32) -> Result<Vec<Point>, String> {
         }
 
         // enqueue children
-        let mut children = result_or_return!(node.neighbors());
+        let mut children = result_or_return!(node.neighbors(&params));
 
         while !children.is_empty() {
             // TODO: make a preliminary filter on children's cost
