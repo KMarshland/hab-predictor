@@ -9,7 +9,7 @@ use predictor::predictor::*;
 pub struct GuidanceParams {
     pub launch : Point,
 
-    pub timeout : f32,
+    pub timeout : f32, // seconds
 
     pub time_increment : Duration,
 
@@ -292,12 +292,7 @@ impl GenerationalPQueue {
      * Adds a node to the queue
      */
     pub fn enqueue(&mut self, node : Node) {
-
-        // initialize costs and queues if we need
-        for _ in self.costs.len()..(node.generation + 1) {
-            self.costs.push(0.1);
-            self.generations.push(BinaryHeap::new())
-        }
+        self.allocate_at_least(node.generation);
 
         self.generations[node.generation].push(node);
     }
@@ -337,7 +332,19 @@ impl GenerationalPQueue {
      * Does not affect underlying pqueues
      */
     pub fn set_cost(&mut self, generation : usize, cost : f32) {
+        self.allocate_at_least(generation);
+
         self.costs[generation] = cost
+    }
+
+    /*
+     * Makes sure the underlying queues and arrays can support at least `generations` generations
+     */
+    fn allocate_at_least(&mut self, generations : usize) {
+        for _ in self.costs.len()..(generations + 1) {
+            self.costs.push(0.1);
+            self.generations.push(BinaryHeap::new())
+        }
     }
 }
 

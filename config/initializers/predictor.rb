@@ -58,6 +58,20 @@ class Predictor
       ))
     end
 
+    def guidance(lat:, lon:, altitude:, time:, timeout:, time_increment:180, altitude_variance:5, altitude_increment:500, compare_with_naive: false)
+      JSON(RustPredictor.guidance(
+          lat.to_f,
+          lon.to_f,
+          altitude.to_f,
+          time.to_i.to_s,
+          timeout.to_f,
+          time_increment.to_f,
+          altitude_variance.to_f,
+          altitude_increment.to_f,
+          compare_with_naive
+      ))
+    end
+
   end
 
 end
