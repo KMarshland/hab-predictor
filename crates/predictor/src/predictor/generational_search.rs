@@ -1,8 +1,14 @@
 use std::mem;
 use std::cmp;
 use std::collections::{BinaryHeap, VecDeque};
+use chrono::prelude::*;
+use chrono::Duration;
 use predictor::point::*;
 
+/*
+ * Struct representing a single element in the queue
+ * TODO: make this generic
+ */
 struct Node {
     location : Point,
     previous : Link,
@@ -10,6 +16,9 @@ struct Node {
     cost: f32
 }
 
+/*
+ * Basis for node traversal
+ */
 enum Link {
     Empty,
     More(Box<Node>),
@@ -25,6 +34,9 @@ struct GenerationalPQueue {
 
 impl Node {
 
+    /*
+     * Destructively walks up this node, turning it into a vector (in order)
+     */
     pub fn unravel(&mut self) -> Vec<Point> {
         let mut result : VecDeque<Point> = VecDeque::new();
 
@@ -45,6 +57,9 @@ impl Node {
         unreversed
     }
 
+    /*
+     * TODO
+     */
     pub fn neighbors(&self) -> Vec<Node> {
         vec![]
     }
@@ -59,6 +74,9 @@ impl Node {
     }
 }
 
+/*
+ * Make node able to be compared ordinally and thus stored in a priority queue
+ */
 impl cmp::Ord for Node {
     fn cmp(&self, other: &Self) -> cmp::Ordering {
         // comparing two floats so if this panics so will I
@@ -80,7 +98,14 @@ impl cmp::PartialEq for Node {
 
 impl cmp::Eq for Node { }
 
-
+/*
+ * Data structure for that holds generations of priority queues
+ * Within generations, costs are constant
+ * However, the costs of generations as a whole can change frequently
+ * This structure allows those costs to change with minimal overhead
+ *
+ * TODO: write tests
+ */
 impl GenerationalPQueue {
     pub fn new() -> GenerationalPQueue {
         GenerationalPQueue {
@@ -89,6 +114,9 @@ impl GenerationalPQueue {
         }
     }
 
+    /*
+     * Adds a node to the queue
+     */
     pub fn enqueue(&mut self, node : Node) {
 
         // initialize costs and queues if we need
@@ -100,6 +128,9 @@ impl GenerationalPQueue {
         self.generations[node.generation].push(node);
     }
 
+    /*
+     * Pops a node from the queue
+     */
     pub fn dequeue(&mut self) -> Option<Node> {
         let mut best_generation : i32 = -1;
         let mut best_cost = 0.0;
@@ -127,21 +158,103 @@ impl GenerationalPQueue {
         self.generations[best_generation as usize].pop()
     }
 
+    /*
+     * Sets the generational cost
+     * Does not affect underlying pqueues
+     */
     pub fn set_cost(&mut self, generation : usize, cost : f32) {
         self.costs[generation] = cost
     }
 }
 
-pub fn search(start : Point) -> Vec<Point> {
+/*
+ * Does greedy search, starting from the start point and going for timeout seconds
+ */
+pub fn search(start : Point, timeout : u32) -> Result<Vec<Point>, String> {
+
+    let start_time = Local::now();
 
     let mut best_yet : Option<Node> = None;
+    let mut best_score = 0.0;
 
     let mut queue = GenerationalPQueue::new();
     queue.enqueue(Node::from_point(start));
 
-    //        while let Option::Some(node) = queue.dequeue() {
-    //
-    //        }
+    // remember what the next generation is
+    let mut next_gen = 0;
 
-    best_yet.unwrap().unravel()
+    // a counter that tells you how long it's been since you moved to the next generation
+    let mut stagnation = 0;
+
+    while let Option::Some(mut node) = queue.dequeue() {
+
+        // check timeout
+        if Local::now() > (start_time + Duration::seconds(timeout as i64)) {
+            break;
+        }
+
+        // recalculate generational cost
+
+        if (node.generation + 1) > next_gen {
+            // you're continuing to make progress along this path. Yay!
+            next_gen = node.generation + 1;
+            stagnation = 0;
+
+        } else {
+            // you're stagnating faster than a mosquito bucket
+            stagnation += 1;
+        }
+
+        if next_gen == 0 || next_gen == 1 {
+            // you can't very well be stagnating on the first generation
+            queue.set_cost(next_gen, 0.0);
+        } else {
+            // as stagnation increases, make the next generation look more appealing
+            queue.set_cost(next_gen, (-0.01 * (stagnation as f32)) + 0.1);
+        }
+
+        // enqueue children
+        let mut children = node.neighbors();
+
+        while !children.is_empty() {
+            // TODO: make a preliminary filter on children's cost
+
+            // unwrap should not panic: we're already checking for emptiness
+            queue.enqueue(children.pop().unwrap())
+        }
+
+        // see if you're doing better than before
+        // Note: this must come at the end, as it potentially takes ownership of node
+        match best_yet {
+            Some(_) => {
+                let new_score = score(&node);
+
+                if new_score > best_score {
+                    best_yet = Some(node);
+                    best_score = new_score;
+                }
+            },
+            None => {
+                best_yet = Some(node)
+            }
+        }
+    }
+
+    match best_yet {
+        Some(mut node) => {
+            Ok(node.unravel())
+        },
+        None => {
+            Err(String::from("Best node not found (this error should never occur)"))
+        }
+    }
+}
+
+/*
+ * Converts a node into a representation of how good it is
+ * Higher is better
+ * TODO: make this a lambda in params
+ */
+fn score(node : &Node) -> f32 {
+    node.location.longitude
 }
