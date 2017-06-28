@@ -2,6 +2,7 @@ use chrono::prelude::*;
 use chrono::Duration;
 use std::ops::Add;
 use std::ops::Mul;
+use std::fmt;
 use std::f32;
 use serde::ser::{SerializeMap};
 
@@ -28,6 +29,13 @@ impl ::serde::Serialize for Point {
         map.serialize_entry("altitude", &self.altitude)?;
         map.serialize_entry("time", &self.time.to_string())?; // potentially switch this to unix epoch?
         map.end()
+    }
+}
+
+impl fmt::Display for Point {
+    // This trait requires `fmt` with this exact signature.
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{},{} / {}m at {}", self.latitude, self.longitude, self.altitude, self.time.to_string())
     }
 }
 

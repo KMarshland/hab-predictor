@@ -1,10 +1,17 @@
+use libc;
 use std::cmp;
+use std::mem;
 use std::collections::{BinaryHeap, VecDeque};
 use chrono::prelude::*;
 use chrono::Duration;
 use serde_json;
 use predictor::point::*;
 use predictor::predictor::*;
+
+const DEFAULT_STAGNATION_COST : f32 = 0.1;
+const STAGNATION_MULTIPLIER : f32 = 0.1;
+const HEURISTIC_WEIGHT : f32 = 100.0;
+const MOVEMENT_WEIGHT : f32 = 0.001;
 
 pub struct GuidanceParams {
     pub launch : Point,
@@ -21,8 +28,16 @@ pub struct GuidanceParams {
 
 #[derive(Serialize)]
 pub struct Guidance {
+    metadata: GuidanceMetadata,
     positions: Vec<Point>,
     naive: Option<Vec<Point>>
+}
+
+#[derive(Serialize)]
+struct GuidanceMetadata {
+    nodes_checked : usize,
+    generation: usize,
+    max_generation_reached : usize
 }
 
 impl Guidance {
@@ -32,7 +47,7 @@ impl Guidance {
 }
 
 pub fn guidance(params : GuidanceParams) -> Result<Guidance, String> {
-    let positions = {
+    let mut result = {
         result_or_return!(search(&params))
     };
 
@@ -47,14 +62,14 @@ pub fn guidance(params : GuidanceParams) -> Result<Guidance, String> {
                 descent_rate: 0.0,
 
                 duration: {
-                    let first = match positions.first() {
+                    let first = match result.positions.first() {
                         Some(point) => point,
                         None => {
                             return Err(String::from("No data in naive prediction"));
                         }
                     };
 
-                    let last = match positions.last() {
+                    let last = match result.positions.last() {
                         Some(point) => point,
                         None => {
                             return Err(String::from("No data in naive prediction"));
@@ -81,10 +96,9 @@ pub fn guidance(params : GuidanceParams) -> Result<Guidance, String> {
         }
     };
 
-    Ok(Guidance {
-        positions: positions,
-        naive: naive
-    })
+    mem::replace(&mut result.naive, naive);
+
+    Ok(result)
 }
 /*
  * Struct representing a single element in the queue
@@ -113,7 +127,7 @@ struct GenerationalPQueue {
     costs : Vec<f32>,
 
     // TODO: use fibonacci heaps for underlying implementation
-    generations : Vec<BinaryHeap<Node>>
+    generations : Vec<BinaryHeap<*mut Node>>
 }
 
 impl Node {
@@ -127,10 +141,11 @@ impl Node {
         result.push_front(self.location.clone());
         let mut previous = self.previous.clone();
 
+        let mut iterations = 0;
+
         loop {
             previous = match previous {
                 Some(node_ptr) => {
-
                     // yikes
                     let node = unsafe  { // please don't SEGFAULT
                         let ref node = *node_ptr;
@@ -145,6 +160,11 @@ impl Node {
                     break;
                 }
             };
+
+            if iterations > self.generation {
+                panic!("Too many iterations in unraveling");
+            }
+            iterations += 1;
         }
 
         let mut unreversed : Vec<Point> = vec![];
@@ -159,7 +179,7 @@ impl Node {
     /*
      * Gets the neighbors of this node by making a prediction
      */
-    fn neighbors(&self, params : &GuidanceParams) -> Result<Vec<Node>, String> {
+    fn neighbors(&self, address : *mut Self, params : &GuidanceParams) -> Result<Vec<*mut Self>, String> {
         let prediction = predict(PredictorParams {
             launch: self.location.clone(),
             profile: PredictionProfile::ValBal,
@@ -195,7 +215,7 @@ impl Node {
             }
         };
 
-        let mut result : Vec<Node> = Vec::new();
+        let mut result : Vec<*mut Node> = Vec::new();
 
         for multiplier in (-(params.altitude_variance as i32))..((params.altitude_variance as i32) + 1) {
             let altitude = point.altitude + ((multiplier as f32) * (params.altitude_increment as f32));
@@ -205,39 +225,66 @@ impl Node {
                 continue;
             }
 
-            result.push(Node {
-                location: Point {
-                    time: point.time,
-                    latitude: point.latitude,
-                    longitude: point.longitude,
-                    altitude: altitude
-                },
-                previous: Some(&*self), // this syntax makes me want to die but it gets a pointer to self
-
-                generation: self.generation + 1,
-                heuristic_cost: {
-                    (self.location.longitude - point.longitude) / (params.time_increment.num_seconds() as f32)
-                },
-                movement_cost: {
-                    // TODO: make this proportional to the square of the change without scaling it too weirdly
-                    self.movement_cost + (self.location.altitude - altitude).abs()/1200000.0
+            let child = unsafe {
+                let child_ptr : *mut Node = libc::malloc(mem::size_of::<Node>()) as *mut Node;
+                if child_ptr.is_null() {
+                    panic!("Failed to allocate a new node");
                 }
-            })
+
+                *child_ptr = Node {
+                    location: Point {
+                        time: point.time,
+                        latitude: point.latitude,
+                        longitude: point.longitude,
+                        altitude: altitude
+                    },
+
+                    previous: Some(address),
+
+                    generation: self.generation + 1,
+
+                    heuristic_cost: {
+                        (self.location.longitude - point.longitude) / (params.time_increment.num_seconds() as f32) * HEURISTIC_WEIGHT
+                    },
+
+                    movement_cost: {
+                        self.movement_cost + ((self.location.altitude - altitude).abs().sqrt() * MOVEMENT_WEIGHT)
+                    }
+                };
+
+                child_ptr
+            };
+
+            result.push(child);
         }
 
         Ok(result)
     }
 
-    fn from_point(point : Point) -> Self {
-        Node {
-            location : point,
-            previous : None,
+    fn from_point(point : Point) -> *mut Self {
 
-            generation: 0,
+        let node_ptr = unsafe {
+            let node_ptr: *mut Node = libc::malloc(mem::size_of::<Node>()) as *mut Node;
+            if node_ptr.is_null() {
+                panic!("Failed to allocate a new node");
+            }
 
-            heuristic_cost: 0.0,
-            movement_cost: 0.0
+            node_ptr
+        };
+
+        unsafe {
+            *node_ptr = Node {
+                location: point,
+                previous: None,
+
+                generation: 0,
+
+                heuristic_cost: 0.0,
+                movement_cost: 0.0
+            };
         }
+
+        node_ptr
     }
 
     /*
@@ -291,16 +338,18 @@ impl GenerationalPQueue {
     /*
      * Adds a node to the queue
      */
-    pub fn enqueue(&mut self, node : Node) {
-        self.allocate_at_least(node.generation);
+    pub fn enqueue(&mut self, node : *mut Node) {
+        let generation = unsafe_dereference!(node).generation;
 
-        self.generations[node.generation].push(node);
+        self.allocate_at_least(generation);
+
+        self.generations[generation].push(node);
     }
 
     /*
      * Pops a node from the queue
      */
-    pub fn dequeue(&mut self) -> Option<Node> {
+    pub fn dequeue(&mut self) -> Option<*mut Node> {
         let mut best_generation : i32 = -1;
         let mut best_cost = 0.0;
 
@@ -311,7 +360,9 @@ impl GenerationalPQueue {
 
 
             // unwrap will not panic: we already checked for emptiness
-            let cost = self.generations[generation].peek().unwrap().cost() + self.costs[generation];
+            let node_ptr = self.generations[generation].peek().unwrap().clone();
+
+            let cost = unsafe_dereference!(node_ptr).cost() + self.costs[generation];
 
             if best_generation == -1 || cost < best_cost {
                 best_cost = cost;
@@ -342,7 +393,7 @@ impl GenerationalPQueue {
      */
     fn allocate_at_least(&mut self, generations : usize) {
         for _ in self.costs.len()..(generations + 1) {
-            self.costs.push(0.1);
+            self.costs.push(DEFAULT_STAGNATION_COST);
             self.generations.push(BinaryHeap::new())
         }
     }
@@ -351,15 +402,19 @@ impl GenerationalPQueue {
 /*
  * Does greedy search, starting from the start point and going for timeout seconds
  */
-fn search(params : &GuidanceParams) -> Result<Vec<Point>, String> {
+fn search(params : &GuidanceParams) -> Result<Guidance, String> {
 
+    let mut free_at_end : Vec<*mut Node> = Vec::new();
     let end_time = Local::now() + Duration::seconds(params.timeout as i64);
 
-    let mut best_yet : Option<Node> = None;
+    let mut best_yet : Option<*mut Node> = None;
     let mut best_score = 0.0;
 
+    let start = Node::from_point(params.launch.clone());
+    free_at_end.push(start);
+
     let mut queue = GenerationalPQueue::new();
-    queue.enqueue(Node::from_point(params.launch.clone()));
+    queue.enqueue(start);
 
     // remember what the next generation is
     let mut next_gen = 0;
@@ -367,11 +422,22 @@ fn search(params : &GuidanceParams) -> Result<Vec<Point>, String> {
     // a counter that tells you how long it's been since you moved to the next generation
     let mut stagnation = 0;
 
-    while let Option::Some(node) = queue.dequeue() {
+    // only used for debugging
+    let mut checked = 0;
+    let mut max_generation = 0;
+
+
+    while let Option::Some(node_ptr) = queue.dequeue() {
 
         // check timeout
         if Local::now() > end_time {
             break;
+        }
+
+        let node = unsafe_dereference!(node_ptr);
+
+        if node.generation > max_generation {
+            max_generation = node.generation
         }
 
         // recalculate generational cost
@@ -391,17 +457,19 @@ fn search(params : &GuidanceParams) -> Result<Vec<Point>, String> {
             queue.set_cost(next_gen, 0.0);
         } else {
             // as stagnation increases, make the next generation look more appealing
-            queue.set_cost(next_gen, (-0.01 * (stagnation as f32)) + 0.1);
+            queue.set_cost(next_gen, (-STAGNATION_MULTIPLIER * (stagnation as f32)) + DEFAULT_STAGNATION_COST);
         }
 
         // enqueue children
-        let mut children = result_or_return!(node.neighbors(&params));
+        let mut children = result_or_return!(node.neighbors(node_ptr, &params));
 
         while !children.is_empty() {
             // TODO: make a preliminary filter on children's cost
 
-            // unwrap should not panic: we're already checking for emptiness
-            queue.enqueue(children.pop().unwrap())
+            let child = children.pop().unwrap();
+            free_at_end.push(child);
+
+            queue.enqueue(child);
         }
 
         // see if you're doing better than before
@@ -411,7 +479,7 @@ fn search(params : &GuidanceParams) -> Result<Vec<Point>, String> {
                 let new_score = score(&node);
 
                 if new_score > best_score {
-                    best_yet = Some(node);
+                    best_yet = Some(node_ptr);
                     best_score = new_score;
                 }
             },
@@ -419,11 +487,30 @@ fn search(params : &GuidanceParams) -> Result<Vec<Point>, String> {
                 best_yet = Some(node)
             }
         }
+
+        checked += 1;
     }
 
     match best_yet {
         Some(node) => {
-            Ok(node.unravel())
+            let final_generation = unsafe_dereference!(node).generation;
+            let positions = unsafe_dereference!(node).unravel();
+
+            while !free_at_end.is_empty() {
+                unsafe {
+                    libc::free(free_at_end.pop().unwrap() as *mut libc::c_void);
+                }
+            }
+
+            Ok(Guidance{
+                metadata: GuidanceMetadata {
+                    generation: final_generation,
+                    max_generation_reached: max_generation,
+                    nodes_checked: checked
+                },
+                positions: positions,
+                naive: None
+            })
         },
         None => {
             Err(String::from("Best node not found (this error should never occur)"))
@@ -436,5 +523,11 @@ fn search(params : &GuidanceParams) -> Result<Vec<Point>, String> {
  * Higher is better
  */
 fn score(node : &Node) -> f32 {
-    node.location.longitude
+    // let it wrap around the earth
+    // TODO: let it circumnavigate multiple times
+    if node.location.longitude < -140.0 {
+        return node.location.longitude + 180.0 + 360.0
+    }
+
+    node.location.longitude + 180.0
 }
