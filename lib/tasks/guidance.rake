@@ -15,12 +15,24 @@ namespace :guidance do
     # puts JSON.pretty_generate result
     # puts "\n\n\n"
 
+
+    naive = (result['naive'].last || {})
+    active = (result['positions'].last || {})
+    time = active['time']
+
+    puts 'Final position for active guidance'
+    puts JSON.pretty_generate active
+
+    puts
+    puts 'Final position for naive'
+    puts JSON.pretty_generate naive
+
+    puts
+    puts 'Metadata'
     puts JSON.pretty_generate result['metadata']
 
-    naive = (result['naive'].last || {})['longitude']
-    active = (result['positions'].last || {})['longitude']
-    time = (result['naive'].last || {})['time']
 
-    puts "Got to longitude #{active} (only #{naive} naively) by #{time}"
+    puts
+    puts "Got to longitude #{active['longitude']} (only #{naive['longitude']} naively) by #{time}"
   end
 end

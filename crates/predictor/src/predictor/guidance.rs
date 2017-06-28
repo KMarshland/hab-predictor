@@ -9,8 +9,8 @@ use predictor::point::*;
 use predictor::predictor::*;
 
 const DEFAULT_STAGNATION_COST : f32 = 0.1;
-const STAGNATION_MULTIPLIER : f32 = 0.1;
-const HEURISTIC_WEIGHT : f32 = 100.0;
+const STAGNATION_MULTIPLIER : f32 = 0.01;
+const HEURISTIC_WEIGHT : f32 = 1000.0;
 const MOVEMENT_WEIGHT : f32 = 0.001;
 
 pub struct GuidanceParams {
