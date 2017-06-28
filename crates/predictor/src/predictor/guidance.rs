@@ -10,7 +10,7 @@ use predictor::predictor::*;
 
 const DEFAULT_STAGNATION_COST : f32 = 0.1;
 const STAGNATION_MULTIPLIER : f32 = 0.1;
-const HEURISTIC_WEIGHT : f32 = 200.0;
+const HEURISTIC_WEIGHT : f32 = 100.0;
 const MOVEMENT_WEIGHT : f32 = 0.001;
 
 pub struct GuidanceParams {
@@ -36,6 +36,7 @@ pub struct Guidance {
 
 #[derive(Serialize)]
 struct GuidanceMetadata {
+    pps: f32,
     nodes_checked : usize,
     generation: usize,
     max_generation_reached : usize
@@ -250,7 +251,16 @@ impl Node {
                     generation: self.generation + 1,
 
                     heuristic_cost: {
-                        (self.location.longitude - point.longitude) / (params.time_increment.num_seconds() as f32) * HEURISTIC_WEIGHT
+                        let multiplier = HEURISTIC_WEIGHT / (params.time_increment.num_seconds() as f32);
+
+                        if self.location.longitude > 0.0 && point.longitude < 0.0 {
+                            (self.location.longitude - (point.longitude + 360.0)) * multiplier
+                        } else if self.location.longitude < 0.0 && point.longitude > 0.0 {
+                            ((self.location.longitude + 360.0) - point.longitude) * multiplier
+                        } else {
+                            (self.location.longitude - point.longitude) * multiplier
+                        }
+
                     },
 
                     movement_cost: {
@@ -510,6 +520,7 @@ fn search(params : &GuidanceParams) -> Result<Guidance, String> {
 
             Ok(Guidance{
                 metadata: GuidanceMetadata {
+                    pps : (checked as f32) / params.timeout,
                     generation: final_generation,
                     max_generation_reached: max_generation,
                     nodes_checked: checked
