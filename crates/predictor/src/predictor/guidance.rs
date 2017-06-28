@@ -11,15 +11,18 @@ pub struct GuidanceParams {
 
     pub timeout : f32,
 
-    pub time_increment : f32, // minutes
+    pub time_increment : Duration,
 
     pub altitude_variance : u32,
-    pub altitude_increment : u32
+    pub altitude_increment : u32,
+
+    pub compare_with_naive : bool
 }
 
 #[derive(Serialize)]
 pub struct Guidance {
-    positions: Vec<Point>
+    positions: Vec<Point>,
+    naive: Option<Vec<Point>>
 }
 
 impl Guidance {
@@ -29,10 +32,58 @@ impl Guidance {
 }
 
 pub fn guidance(params : GuidanceParams) -> Result<Guidance, String> {
-    let positions = result_or_return!(search(params));
+    let positions = {
+        result_or_return!(search(&params))
+    };
+
+    let naive = match (&params).compare_with_naive {
+        true => {
+            let prediction = predict(PredictorParams {
+                launch: (&params).launch.clone(),
+                profile: PredictionProfile::ValBal,
+
+                burst_altitude: 0.0,
+                ascent_rate: 0.0,
+                descent_rate: 0.0,
+
+                duration: {
+                    let first = match positions.first() {
+                        Some(point) => point,
+                        None => {
+                            return Err(String::from("No data in naive prediction"));
+                        }
+                    };
+
+                    let last = match positions.last() {
+                        Some(point) => point,
+                        None => {
+                            return Err(String::from("No data in naive prediction"));
+                        }
+                    };
+
+                    last.time.signed_duration_since(first.time)
+                }
+            });
+
+            let naive_positions = match result_or_return!(prediction) {
+                Prediction::ValBal(prediction) => {
+                    prediction.positions
+                },
+                _ => {
+                    panic!("Yikes (yeah, this shouldn't happen)");
+                }
+            };
+
+            Some(naive_positions)
+        },
+        false => {
+            None
+        }
+    };
 
     Ok(Guidance {
-        positions: positions
+        positions: positions,
+        naive: naive
     })
 }
 /*
@@ -117,7 +168,7 @@ impl Node {
             ascent_rate: 0.0,
             descent_rate: 0.0,
 
-            duration: 60.0
+            duration: params.time_increment
         });
 
         let point = match prediction {
@@ -165,7 +216,7 @@ impl Node {
 
                 generation: self.generation + 1,
                 heuristic_cost: {
-                    (self.location.longitude - point.longitude) / params.time_increment
+                    (self.location.longitude - point.longitude) / (params.time_increment.num_seconds() as f32)
                 },
                 movement_cost: {
                     // TODO: make this proportional to the square of the change without scaling it too weirdly
@@ -293,7 +344,7 @@ impl GenerationalPQueue {
 /*
  * Does greedy search, starting from the start point and going for timeout seconds
  */
-fn search(params : GuidanceParams) -> Result<Vec<Point>, String> {
+fn search(params : &GuidanceParams) -> Result<Vec<Point>, String> {
 
     let end_time = Local::now() + Duration::seconds(params.timeout as i64);
 

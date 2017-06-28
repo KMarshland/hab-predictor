@@ -49,7 +49,7 @@ ruby! {
                 ascent_rate: ascent_rate as f32,
                 descent_rate: descent_rate as f32,
 
-                duration: duration as f32
+                duration: chrono::Duration::minutes(duration as i64)
             }).unwrap().serialize()
 
         }
@@ -80,7 +80,7 @@ ruby! {
 
         }
 
-        def guidance(latitude: f64, longitude: f64, altitude: f64, time: String, timeout: f64, time_increment: f64, altitude_variance: f64, altitude_increment: f64) -> String {
+        def guidance(latitude: f64, longitude: f64, altitude: f64, time: String, timeout: f64, time_increment: f64, altitude_variance: f64, altitude_increment: f64, compare_with_naive: bool) -> String {
         predictor::guidance::guidance(predictor::guidance::GuidanceParams {
                 launch: predictor::point::Point {
                     latitude: latitude as f32,
@@ -93,10 +93,12 @@ ruby! {
 
                 timeout: timeout as f32,
 
-                time_increment: time_increment as f32,
+                time_increment: chrono::Duration::minutes(time_increment as i64),
 
                 altitude_variance: altitude_variance as u32,
-                altitude_increment: altitude_increment as u32
+                altitude_increment: altitude_increment as u32,
+
+                compare_with_naive: compare_with_naive
             }).unwrap().serialize()
         }
 

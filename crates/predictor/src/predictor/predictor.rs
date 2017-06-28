@@ -22,7 +22,7 @@ pub struct PredictorParams {
     pub descent_rate: f32, // meters per second
 
     // valbal
-    pub duration: f32, // minutes
+    pub duration: Duration
 }
 
 /*
@@ -44,7 +44,7 @@ struct ValBalPredictorParams {
     launch: Point,
 
     // valbal
-    duration: f32, // minutes
+    duration: Duration
 }
 
 /*
@@ -160,7 +160,7 @@ fn valbal_predict(params : ValBalPredictorParams) -> Result<Prediction, String> 
     let mut positions : Vec<Point> = vec![];
 
     let launch_time = current.clone().time;
-    let end_time = launch_time + Duration::minutes(params.duration as i64);
+    let end_time = launch_time + params.duration;
 
     while current.time < end_time {
         let velocity = velocity_at(&current);
