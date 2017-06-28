@@ -4,6 +4,7 @@ use std::collections::{BinaryHeap, VecDeque};
 use chrono::prelude::*;
 use chrono::Duration;
 use predictor::point::*;
+use predictor::predictor::*;
 
 /*
  * Struct representing a single element in the queue
@@ -12,8 +13,11 @@ use predictor::point::*;
 struct Node {
     location : Point,
     previous : Link,
+
     generation : usize,
-    cost: f32
+
+    heuristic_cost: f32,
+    movement_cost: f32
 }
 
 /*
@@ -37,7 +41,7 @@ impl Node {
     /*
      * Destructively walks up this node, turning it into a vector (in order)
      */
-    pub fn unravel(&mut self) -> Vec<Point> {
+    fn unravel(&mut self) -> Vec<Point> {
         let mut result : VecDeque<Point> = VecDeque::new();
 
         let mut cur_link = mem::replace(&mut self.previous, Link::Empty);
@@ -58,19 +62,66 @@ impl Node {
     }
 
     /*
-     * TODO
+     * Gets the neighbors of this node by making a prediction
      */
-    pub fn neighbors(&self) -> Vec<Node> {
-        vec![]
+    fn neighbors(&self) -> Result<Vec<Node>, String> {
+        let prediction = predict(PredictorParams {
+            launch: self.location.clone(),
+            profile: PredictionProfile::ValBal,
+
+            burst_altitude: 0.0,
+            ascent_rate: 0.0,
+            descent_rate: 0.0,
+
+            duration: 60.0
+        });
+
+        let point = match prediction {
+            Ok(unwrapped) => {
+                match unwrapped {
+                    Prediction::ValBal(prediction) => {
+                        let mut borrowed = prediction;
+                        match borrowed.positions.pop() {
+                            Some(point) => {
+                                point
+                            },
+                            _ => {
+                                return Err(String::from("No data in prediction"));
+                            }
+                        }
+                    },
+                    _ => {
+                        panic!("Yikes (yeah, this shouldn't happen)");
+                    }
+                }
+            },
+            Err(why) => {
+                return Err(why);
+            }
+        };
+
+        let result : Vec<Node> = Vec::new();
+
+        Ok(result)
     }
 
-    pub fn from_point(point : Point) -> Node {
+    fn from_point(point : Point) -> Node {
         Node {
             location : point,
             previous : Link::Empty,
+
             generation: 0,
-            cost: 0.0
+
+            heuristic_cost: 0.0,
+            movement_cost: 0.0
         }
+    }
+
+    /*
+     * Total cost for a node
+     */
+    fn cost(&self) -> f32 {
+        self.heuristic_cost + self.movement_cost
     }
 }
 
@@ -80,7 +131,7 @@ impl Node {
 impl cmp::Ord for Node {
     fn cmp(&self, other: &Self) -> cmp::Ordering {
         // comparing two floats so if this panics so will I
-        self.cost.partial_cmp(&other.cost).unwrap()
+        self.cost().partial_cmp(&other.cost()).unwrap()
     }
 }
 
@@ -92,7 +143,7 @@ impl cmp::PartialOrd for Node {
 
 impl cmp::PartialEq for Node {
     fn eq(&self, other: &Self) -> bool {
-        self.cost == other.cost
+        self.cost() == other.cost()
     }
 }
 
@@ -142,7 +193,7 @@ impl GenerationalPQueue {
 
 
             // unwrap will not panic: we already checked for emptiness
-            let cost = self.generations[generation].peek().unwrap().cost + self.costs[generation];
+            let cost = self.generations[generation].peek().unwrap().cost() + self.costs[generation];
 
             if best_generation == -1 || cost < best_cost {
                 best_cost = cost;
@@ -214,7 +265,7 @@ pub fn search(start : Point, timeout : u32) -> Result<Vec<Point>, String> {
         }
 
         // enqueue children
-        let mut children = node.neighbors();
+        let mut children = result_or_return!(node.neighbors());
 
         while !children.is_empty() {
             // TODO: make a preliminary filter on children's cost
