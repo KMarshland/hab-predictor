@@ -7,7 +7,7 @@ namespace :guidance do
         altitude: 12000,
         time: 1.hour.from_now,
 
-        timeout: 5,
+        timeout: 10,
         compare_with_naive: true
     )
 
