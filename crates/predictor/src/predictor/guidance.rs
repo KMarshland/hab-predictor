@@ -17,6 +17,7 @@ pub struct GuidanceParams {
     pub launch : Point,
 
     pub timeout : f32, // seconds
+    pub duration : Duration, // prevents it from circumnavigating indefinitely
 
     pub time_increment : Duration,
 
@@ -180,6 +181,11 @@ impl Node {
      * Gets the neighbors of this node by making a prediction
      */
     fn neighbors(&self, address : *mut Self, params : &GuidanceParams) -> Result<Vec<*mut Self>, String> {
+        // return blank if you're at the end of the time period
+        if (self.generation as i64)*params.time_increment.num_seconds() > params.duration.num_seconds() {
+            return Ok(vec![]);
+        }
+
         let prediction = predict(PredictorParams {
             launch: self.location.clone(),
             profile: PredictionProfile::ValBal,
