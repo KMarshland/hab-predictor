@@ -155,7 +155,7 @@ Otherwise:
 
 ### Downloading the data
 The predictor will fail with no data. 
-To download the data, run `bundle exec rake prediction download_sync`.
+To download the data, run `bundle exec rake prediction:download_sync`.
 This both downloads it (takes approximately a minute with a fast internet connection) and preprocesses the data.
 Preprocessing can take up to an hour; however, you can start testing the api long before.
 Since it processes the data in chronological order, at a rate of approximately 6 hours worth of data per minute, if you're running a prediction close to the current time it will likely have finished processing the data in time 
