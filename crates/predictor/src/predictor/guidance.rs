@@ -1,4 +1,3 @@
-use std::mem;
 use std::cmp;
 use std::collections::{BinaryHeap, VecDeque};
 use chrono::prelude::*;
@@ -42,7 +41,7 @@ pub fn guidance(params : GuidanceParams) -> Result<Guidance, String> {
  */
 struct Node {
     location : Point,
-    previous : Link,
+    previous : Option<*const Node>,
 
     generation : usize,
 
@@ -53,10 +52,10 @@ struct Node {
 /*
  * Basis for node traversal
  */
-enum Link {
-    Empty,
-    More(Box<Node>),
-}
+//enum Link {
+//    Empty,
+//    Another(*const Node),
+//}
 
 // TODO: design a real data structure for this
 struct GenerationalPQueue {
@@ -71,15 +70,30 @@ impl Node {
     /*
      * Destructively walks up this node, turning it into a vector (in order)
      */
-    fn unravel(&mut self) -> Vec<Point> {
+    fn unravel(&self) -> Vec<Point> {
         let mut result : VecDeque<Point> = VecDeque::new();
 
-        let mut cur_link = mem::replace(&mut self.previous, Link::Empty);
         result.push_front(self.location.clone());
+        let mut previous = self.previous.clone();
 
-        while let Link::More(mut boxed_node) = cur_link {
-            cur_link = mem::replace(&mut boxed_node.previous, Link::Empty);
-            result.push_front(boxed_node.location);
+        loop {
+            previous = match previous {
+                Some(node_ptr) => {
+
+                    // yikes
+                    let node = unsafe  { // please don't SEGFAULT
+                        let ref node = *node_ptr;
+                        node
+                    };
+
+                    result.push_front(node.location.clone());
+
+                    node.previous
+                }
+                None => {
+                    break;
+                }
+            };
         }
 
         let mut unreversed : Vec<Point> = vec![];
@@ -130,15 +144,43 @@ impl Node {
             }
         };
 
-        let result : Vec<Node> = Vec::new();
+        let mut result : Vec<Node> = Vec::new();
+
+        for multiplier in (-(params.altitude_variance as i32))..((params.altitude_variance as i32) + 1) {
+            let altitude = point.altitude + ((multiplier as f32) * (params.altitude_increment as f32));
+
+            if altitude < 0.0 {
+                // don't fly into the ground :skeleton:
+                continue;
+            }
+
+            result.push(Node {
+                location: Point {
+                    time: point.time,
+                    latitude: point.latitude,
+                    longitude: point.longitude,
+                    altitude: altitude
+                },
+                previous: Some(&*self), // this syntax makes me want to die but it gets a pointer to self
+
+                generation: self.generation + 1,
+                heuristic_cost: {
+                    (self.location.longitude - point.longitude) / params.time_increment
+                },
+                movement_cost: {
+                    // TODO: make this proportional to the square of the change without scaling it too weirdly
+                    self.movement_cost + (self.location.altitude - altitude).abs()/1200000.0
+                }
+            })
+        }
 
         Ok(result)
     }
 
-    fn from_point(point : Point) -> Node {
+    fn from_point(point : Point) -> Self {
         Node {
             location : point,
-            previous : Link::Empty,
+            previous : None,
 
             generation: 0,
 
@@ -188,7 +230,7 @@ impl cmp::Eq for Node { }
  * TODO: write tests
  */
 impl GenerationalPQueue {
-    pub fn new() -> GenerationalPQueue {
+    pub fn new() -> Self {
         GenerationalPQueue {
             costs: vec![],
             generations: vec![]
@@ -322,7 +364,7 @@ fn search(params : GuidanceParams) -> Result<Vec<Point>, String> {
     }
 
     match best_yet {
-        Some(mut node) => {
+        Some(node) => {
             Ok(node.unravel())
         },
         None => {
@@ -334,7 +376,6 @@ fn search(params : GuidanceParams) -> Result<Vec<Point>, String> {
 /*
  * Converts a node into a representation of how good it is
  * Higher is better
- * TODO: make this a lambda in params
  */
 fn score(node : &Node) -> f32 {
     node.location.longitude
