@@ -10,8 +10,8 @@ use predictor::predictor::*;
 
 const DEFAULT_STAGNATION_COST : f32 = 0.1;
 const STAGNATION_MULTIPLIER : f32 = 0.01;
-const HEURISTIC_WEIGHT : f32 = 1000.0;
-const MOVEMENT_WEIGHT : f32 = 0.001;
+const HEURISTIC_WEIGHT : f32 = 30.0;
+const MOVEMENT_WEIGHT : f32 = 0.1;
 
 pub struct GuidanceParams {
     pub launch : Point,
@@ -36,7 +36,6 @@ pub struct Guidance {
 
 #[derive(Serialize)]
 struct GuidanceMetadata {
-    pps: f32,
     nodes_checked : usize,
     generation: usize,
     max_generation_reached : usize
@@ -520,7 +519,6 @@ fn search(params : &GuidanceParams) -> Result<Guidance, String> {
 
             Ok(Guidance{
                 metadata: GuidanceMetadata {
-                    pps : (checked as f32) / params.timeout,
                     generation: final_generation,
                     max_generation_reached: max_generation,
                     nodes_checked: checked

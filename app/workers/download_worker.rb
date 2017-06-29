@@ -76,7 +76,6 @@ class DownloadWorker
       workers << Thread.new do
         begin
           while (file_url = datasets.pop(true)).present?
-            puts file_url
             download_file file_url, dir
 
             number_completed += 1
