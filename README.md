@@ -38,9 +38,6 @@ If successful, the API will respond with a 200 and a response of the following f
 
 ```json
 {
-  "metadata": {
-    "flightTime": "float in minutes"
-  },
   "data": {
     "ascent": [
       {
@@ -76,6 +73,42 @@ If successful, the API will respond with a 200 and a response of the following f
 }
 ```
 Note that `ascent`, `burst`, and `descent` will only be present for when profile is "standard", and `float` will only be present when profile is "valbal"
+
+### /footprint
+This comes 
+
+**Required Parameters**
+
+| Parameter              | Type    | Description                                                            |
+|------------------------|---------|------------------------------------------------------------------------|
+| lat                    | float   | Launch latitude                                                        |
+| lon                    | float   | Launch longitude                                                       |
+| altitude               | float   | Launch altitude, in meters                                             |
+| time                   | integer | UNIX timestamp (seconds since epoch) of the launch time                |
+| burst_altitude_mean    | float   | Mean for burst altitude distribution, in meters                        |
+| burst_altitude_std_dev | float   | Standard deviation for burst altitude distribution, in meters          |
+| ascent_rate_mean       | float   | Mean for ascent rate, in m/s                                           |
+| ascent_rate_std_dev    | float   | Standard deviation for ascent rate, in m/s                             |
+| descent_rate_mean      | float   | Mean for descent rate, in m/s                                          |
+| descent_rate_std_dev   | float   | Standard deviation for descent rate, in m/s                            |
+| trials                 | integer | Number of trials to run (on the order of 1000 recommended)             |
+
+
+**Response**
+If successful, the API will respond with a 200 and a response of the following format:
+
+```json
+{
+  "positions": [
+    {
+        "lat": "float",
+        "lon": "float",
+        "altitude": "float",
+        "time": "ISO String"
+    }
+  ]
+}
+```
 
 ### /guidance
 This is the core active guidance endpoint. In the initial version of the API, it will only support optimizing traveling east as fast as possible, but there are plans to let it navigate to a given point.  
@@ -122,7 +155,7 @@ Otherwise:
 
 ### Downloading the data
 The predictor will fail with no data. 
-To download the data, run `bundle exec rake prediction download_sync`.
+To download the data, run `bundle exec rake prediction:download_sync`.
 This both downloads it (takes approximately a minute with a fast internet connection) and preprocesses the data.
 Preprocessing can take up to an hour; however, you can start testing the api long before.
 Since it processes the data in chronological order, at a rate of approximately 6 hours worth of data per minute, if you're running a prediction close to the current time it will likely have finished processing the data in time 

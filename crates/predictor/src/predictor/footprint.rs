@@ -3,6 +3,7 @@ use rand::distributions::{Normal, IndependentSample};
 use serde_json;
 use predictor::point::*;
 use predictor::predictor::*;
+use chrono::Duration;
 
 /*
  * All parameters that get passed into the footprint calculation
@@ -49,7 +50,7 @@ pub fn calculate_footprint(params : FootprintParams) -> Result<Footprint, String
             ascent_rate: ascent_distribution.ind_sample(&mut rand::thread_rng()) as f32,
             descent_rate: descent_distribution.ind_sample(&mut rand::thread_rng()) as f32,
 
-            duration: 0.0
+            duration: Duration::minutes(0)
         });
 
         match result {

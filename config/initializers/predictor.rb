@@ -38,7 +38,7 @@ class Predictor
                        burst_altitude.to_f,
                        ascent_rate.to_f,
                        descent_rate.to_f,
-                       duration.to_f
+                       duration.to_f.minutes.to_i
       ))
     end
 
@@ -55,6 +55,21 @@ class Predictor
           descent_rate_mean.to_f,
           descent_rate_std_dev.to_f,
           trials.to_i
+      ))
+    end
+
+    def guidance(lat:, lon:, altitude:, time:, timeout:, duration:, time_increment:180, altitude_variance:5, altitude_increment:500, compare_with_naive: false)
+      JSON(RustPredictor.guidance(
+          lat.to_f,
+          lon.to_f,
+          altitude.to_f,
+          time.to_i.to_s,
+          timeout.to_f,
+          duration.minutes.to_i,
+          time_increment.to_f,
+          altitude_variance.to_f,
+          altitude_increment.to_f,
+          compare_with_naive
       ))
     end
 

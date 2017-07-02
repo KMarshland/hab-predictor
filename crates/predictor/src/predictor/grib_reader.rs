@@ -135,7 +135,8 @@ impl GribReader {
     }
 
     /*
-     *
+     * Looks for a point in the file, adding everything in it to the cache
+     * Note that u is east and v is south, as per https://en.wikipedia.org/wiki/Zonal_and_meridional
      */
     fn scan_file(&mut self, filename : String, aligned : &AlignedPoint) -> Result<Velocity, String> {
         let name = &filename;
@@ -159,7 +160,7 @@ impl GribReader {
                         AlignedPoint::cache_key(aligned.level, line.lat, line.lon),
                         Velocity {
                             east: line.u,
-                            north: line.v,
+                            north: -line.v,
                             vertical: 0.0
                         }
                     );
@@ -189,8 +190,8 @@ impl GribReader {
         }
 
         Ok(Velocity {
-            east: u,
-            north: v,
+            east: v,
+            north: -u,
             vertical: 0.0
         })
     }

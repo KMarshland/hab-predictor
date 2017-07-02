@@ -23,3 +23,22 @@ macro_rules! result_or_return {
         }
     };
 }
+
+/*
+ * let a = unsafe_dereference!(b)
+ *
+ * -------
+ *
+ * let a = unsafe {
+ *      let ref mut node = *b;
+ *      node
+ * }
+ */
+macro_rules! unsafe_dereference {
+    ($variable:expr) => {
+        unsafe {
+            let ref mut deref = *$variable;
+            deref
+        }
+    };
+}
