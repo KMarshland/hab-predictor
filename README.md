@@ -110,8 +110,8 @@ If successful, the API will respond with a 200 and a response of the following f
 }
 ```
 
-### /guidance
-This is the core active guidance endpoint. In the initial version of the API, it will only support optimizing traveling east as fast as possible, but there are plans to let it navigate to a given point.  
+### /navigation
+This is the core navigation endpoint. In the initial version of the API, it will only support optimizing traveling east as fast as possible, but there are plans to let it navigate to a given point.  
 
 **Required Parameters**
 
@@ -121,9 +121,8 @@ This is the core active guidance endpoint. In the initial version of the API, it
 | lon          | float   | Launch longitude                                                    |
 | altitude     | float   | Launch altitude, in meters                                          |
 | time         | integer | UNIX timestamp (seconds since epoch) of the launch time             |
-| performance  | integer | Performance coefficient. Higher is more performant but takes longer |
+| duration     | integer | Minutes after launch that it will navigate for                      |
 | timeout      | integer | Max seconds to run guidance for. Limited to 60                      |
-| altitude_res | float   | Granularity of altitude adjustments it assumes the payload can make in meters. Defaults to 500 |
 
 
 **Response**
@@ -147,11 +146,13 @@ If successful, the API will respond with a 200 and a response of the following f
 The simplest way to get it up and running will is to use the Docker Container by running `docker-compose up`.
 
 Otherwise: 
-1. install Rails and Rust
-2. `bundle install`
-3. Install the [ECMWF GRIB API](https://software.ecmwf.int/wiki/display/GRIB/GRIB+API+CMake+installation)
-4. Download the data
-5. Run `foreman start -f Procfile.dev` to start the servers  
+0. Clone this repository
+1. install Rails and Rust (`brew install rustc` installs Rust on OSX)
+2. `bundle install` from within the repository
+3. Install the [ECMWF GRIB API](https://software.ecmwf.int/wiki/display/GRIB/GRIB+API+CMake+installation) (`brew install grib-api` has worked for some people)
+4. Download the data (see section below)
+5. Compile for the first time with `rake build`
+6. Run `foreman start -f Procfile.dev` to start the servers  
 
 ### Downloading the data
 The predictor will fail with no data. 
