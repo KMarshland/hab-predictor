@@ -115,42 +115,37 @@ impl Point {
         //TODO: make a fast lookup structure for this
         let levels = [2, 3, 5, 7, 10, 20, 30, 50, 70, 100, 150, 200, 250, 300, 350, 400, 450, 500, 550, 600, 650, 700, 750, 800, 850, 900, 925, 950, 975, 1000];
         let mut best_level : i32 = 1;
-        let mut second_best_level : i32 = 1;
-
         let mut best_level_diff : f32 = (isobaric_hpa - (best_level as f32)).abs();
-        let mut second_best_level_diff : f32 = (isobaric_hpa - (second_best_level as f32)).abs();
+        let mut best_level_index : usize = 0;
+        let mut curr_index : usize = 0;
 
         for level_ref in levels.iter() {
             let level = *level_ref as i32;
             let diff = (isobaric_hpa - (level as f32)).abs();
 
             if diff < best_level_diff {
-                second_best_level = best_level;
-                second_best_level_diff = best_level_diff;
-
                 best_level = level;
                 best_level_diff = diff;
-            } else if diff < second_best_level_diff {
-                second_best_level = level;
-                second_best_level_diff = diff;
+                best_level_index = curr_index;
             }
-
+            curr_index = curr_index + 1;
         }
+
         // Determine which level is up and which is down
         let mut level_up : i32 = 0;
         let mut level_up_diff : f32 = 0.0;
         let mut level_down : i32 = 0;
         let mut level_down_diff : f32 = 0.0;
 
-        if best_level > second_best_level {
+        if best_level > (isobaric_hpa as i32) {
             level_up = best_level;
             level_up_diff = best_level_diff;
 
-            level_down = second_best_level;
-            level_down_diff = second_best_level_diff;
+            level_down = levels[best_level_index - 1];
+            level_down_diff = (isobaric_hpa - (level_down as f32)).abs();
         } else {
-            level_up = second_best_level;
-            level_up_diff = second_best_level_diff;
+        level_up = levels[best_level_index + 1];
+        level_up_diff = (isobaric_hpa - (level_down as f32)).abs();
 
             level_down = best_level;
             level_down_diff = best_level_diff;
@@ -162,7 +157,10 @@ impl Point {
 
         let percent_north = mangled_lat.ceil() - mangled_lat.floor();
         let percent_east = mangled_lon.ceil() - mangled_lon.floor();
-        let percent_down : f32 = level_down_diff / ((level_up - level_down) as f32);
+        let mut percent_down : f32 = 1.0;
+        if level_up != level_down {
+            percent_down = level_down_diff / ((level_up - level_down) as f32);
+        }
 
         Alignment {
             ne_down: AlignedPoint {
@@ -324,3 +322,4 @@ fn bound(x : f32) -> f32 {
 
     ((val + 180.0) % 360.0) - 180.0
 }
+
