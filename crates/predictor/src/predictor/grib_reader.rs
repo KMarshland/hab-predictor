@@ -77,30 +77,31 @@ impl GribReader {
 
         // lerp lerp lerp
         Ok(
-        (
             (
-                ne_down * aligned.percent_east + &(nw_down * aligned.percent_west)
-            ) * aligned.percent_north +
-
-            &(
                 (
-                    se_down * aligned.percent_east + &(sw_down * aligned.percent_west)
-                ) * aligned.percent_south
-            )
-        ) * aligned.percent_down +
+                    ne_down * aligned.percent_east + &(nw_down * aligned.percent_west)
+                ) * aligned.percent_north +
 
-        &(
-        (
-            (
-                ne_up * aligned.percent_east + &(nw_up * aligned.percent_west)
-            ) * aligned.percent_north +
+                    &(
+                        (
+                            se_down * aligned.percent_east + &(sw_down * aligned.percent_west)
+                        ) * aligned.percent_south
+                    )
+            ) * aligned.percent_down +
 
-            &(
-                (
-                    se_up * aligned.percent_east + &(sw_up * aligned.percent_west)
-                ) * aligned.percent_south
-            )
-        ) * aligned.percent_up)
+                &(
+                    (
+                        (
+                            ne_up * aligned.percent_east + &(nw_up * aligned.percent_west)
+                        ) * aligned.percent_north +
+
+                            &(
+                                (
+                                    se_up * aligned.percent_east + &(sw_up * aligned.percent_west)
+                                ) * aligned.percent_south
+                            )
+                    ) * aligned.percent_up
+                )
         )
     }
 
