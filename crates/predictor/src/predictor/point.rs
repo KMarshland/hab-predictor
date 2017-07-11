@@ -52,15 +52,21 @@ pub struct AlignedPoint {
  * Directions in which a point can be aligned
  */
 pub struct Alignment {
-    pub ne : AlignedPoint,
-    pub nw : AlignedPoint,
-    pub se : AlignedPoint,
-    pub sw : AlignedPoint,
+    pub ne_down : AlignedPoint,
+    pub ne_up : AlignedPoint,
+    pub nw_down : AlignedPoint,
+    pub nw_up : AlignedPoint,
+    pub se_down : AlignedPoint,
+    pub se_up : AlignedPoint,
+    pub sw_down : AlignedPoint,
+    pub sw_up : AlignedPoint,
 
     pub percent_north : f32,
     pub percent_south : f32,
     pub percent_east : f32,
-    pub percent_west : f32
+    pub percent_west : f32,
+    pub percent_down : f32,
+    pub percent_up : f32
 }
 
 /*
@@ -109,16 +115,45 @@ impl Point {
         //TODO: make a fast lookup structure for this
         let levels = [2, 3, 5, 7, 10, 20, 30, 50, 70, 100, 150, 200, 250, 300, 350, 400, 450, 500, 550, 600, 650, 700, 750, 800, 850, 900, 925, 950, 975, 1000];
         let mut best_level : i32 = 1;
+        let mut second_best_level : i32 = 1;
+
         let mut best_level_diff : f32 = (isobaric_hpa - (best_level as f32)).abs();
+        let mut second_best_level_diff : f32 = (isobaric_hpa - (second_best_level as f32)).abs();
 
         for level_ref in levels.iter() {
             let level = *level_ref as i32;
             let diff = (isobaric_hpa - (level as f32)).abs();
 
             if diff < best_level_diff {
+                second_best_level = best_level;
+                second_best_level_diff = best_level_diff;
+
                 best_level = level;
                 best_level_diff = diff;
+            } else if diff < second_best_level_diff {
+                second_best_level = level;
+                second_best_level_diff = diff;
             }
+
+        }
+        // Determine which level is up and which is down
+        let mut level_up : i32 = 0;
+        let mut level_up_diff : f32 = 0.0;
+        let mut level_down : i32 = 0;
+        let mut level_down_diff : f32 = 0.0;
+
+        if best_level > second_best_level {
+            level_up = best_level;
+            level_up_diff = best_level_diff;
+
+            level_down = second_best_level;
+            level_down_diff = second_best_level_diff;
+        } else {
+            level_up = second_best_level;
+            level_up_diff = second_best_level_diff;
+
+            level_down = best_level;
+            level_down_diff = best_level_diff;
         }
 
         // Round to directional DATA_RESOLUTION
@@ -127,32 +162,55 @@ impl Point {
 
         let percent_north = mangled_lat.ceil() - mangled_lat.floor();
         let percent_east = mangled_lon.ceil() - mangled_lon.floor();
+        let percent_down : f32 = level_down_diff / ((level_up - level_down) as f32);
 
         Alignment {
-            ne: AlignedPoint {
+            ne_down: AlignedPoint {
                 latitude: Point::align_lat(mangled_lat.ceil()),
                 longitude: Point::align_lon(mangled_lon.ceil()),
-                level: best_level
+                level: level_down
             },
-            nw: AlignedPoint {
+            ne_up: AlignedPoint {
+                latitude: Point::align_lat(mangled_lat.ceil()),
+                longitude: Point::align_lon(mangled_lon.ceil()),
+                level: level_up
+            },
+            nw_down: AlignedPoint {
                 latitude: Point::align_lat(mangled_lat.ceil()),
                 longitude: Point::align_lon(mangled_lon.floor()),
-                level: best_level
+                level: level_down
             },
-            se: AlignedPoint {
+            nw_up: AlignedPoint {
+                latitude: Point::align_lat(mangled_lat.ceil()),
+                longitude: Point::align_lon(mangled_lon.floor()),
+                level: level_up
+            },
+            se_down: AlignedPoint {
                 latitude: Point::align_lat(mangled_lat.floor()),
                 longitude: Point::align_lon(mangled_lon.ceil()),
-                level: best_level
+                level: level_down
             },
-            sw: AlignedPoint {
+            se_up: AlignedPoint {
+                latitude: Point::align_lat(mangled_lat.floor()),
+                longitude: Point::align_lon(mangled_lon.ceil()),
+                level: level_up
+            },
+            sw_down: AlignedPoint {
                 latitude: Point::align_lat(mangled_lat.floor()),
                 longitude: Point::align_lon(mangled_lon.floor()),
-                level: best_level
+                level: level_down
+            },
+            sw_up: AlignedPoint {
+                latitude: Point::align_lat(mangled_lat.floor()),
+                longitude: Point::align_lon(mangled_lon.floor()),
+                level: level_up
             },
             percent_north: percent_north,
             percent_south: 1.0 - percent_north,
             percent_east: percent_east,
-            percent_west: 1.0 - percent_east
+            percent_west: 1.0 - percent_east,
+            percent_down: percent_down,
+            percent_up: 1.0 - percent_down
         }
 
     }

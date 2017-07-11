@@ -64,17 +64,43 @@ impl GribReader {
      */
     pub fn velocity_at(&mut self, point: &Point) -> Result<Velocity, String> {
 
-        // get the four points to interpolate between
+        // get the eight points to interpolate between
         let aligned = point.align();
-        let ne = result_or_return!(self.velocity_at_aligned(&aligned.ne));
-        let nw = result_or_return!(self.velocity_at_aligned(&aligned.nw));
-        let se = result_or_return!(self.velocity_at_aligned(&aligned.se));
-        let sw = result_or_return!(self.velocity_at_aligned(&aligned.sw));
+        let ne_down = result_or_return!(self.velocity_at_aligned(&aligned.ne_down));
+        let ne_up = result_or_return!(self.velocity_at_aligned(&aligned.ne_up));
+        let nw_down = result_or_return!(self.velocity_at_aligned(&aligned.nw_down));
+        let nw_up = result_or_return!(self.velocity_at_aligned(&aligned.nw_up));
+        let se_down = result_or_return!(self.velocity_at_aligned(&aligned.se_down));
+        let se_up = result_or_return!(self.velocity_at_aligned(&aligned.se_up));
+        let sw_down = result_or_return!(self.velocity_at_aligned(&aligned.sw_down));
+        let sw_up = result_or_return!(self.velocity_at_aligned(&aligned.sw_up));
 
         // lerp lerp lerp
         Ok(
-            (ne * aligned.percent_east + &(nw * aligned.percent_west)) * aligned.percent_north +
-                &((se * aligned.percent_east + &(sw * aligned.percent_west)) * aligned.percent_south)
+        (
+            (
+                ne_down * aligned.percent_east + &(nw_down * aligned.percent_west)
+            ) * aligned.percent_north +
+
+            &(
+                (
+                    se_down * aligned.percent_east + &(sw_down * aligned.percent_west)
+                ) * aligned.percent_south
+            )
+        ) * aligned.percent_down +
+
+        &(
+        (
+            (
+                ne_up * aligned.percent_east + &(nw_up * aligned.percent_west)
+            ) * aligned.percent_north +
+
+            &(
+                (
+                    se_up * aligned.percent_east + &(sw_up * aligned.percent_west)
+                ) * aligned.percent_south
+            )
+        ) * aligned.percent_up)
         )
     }
 
@@ -424,4 +450,3 @@ fn bytes_to_f32(bytes : Vec<u8>) -> Result<f32, String> {
 
     Ok(unsafe {mem::transmute(num)})
 }
-
