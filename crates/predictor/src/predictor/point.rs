@@ -52,15 +52,21 @@ pub struct AlignedPoint {
  * Directions in which a point can be aligned
  */
 pub struct Alignment {
-    pub ne : AlignedPoint,
-    pub nw : AlignedPoint,
-    pub se : AlignedPoint,
-    pub sw : AlignedPoint,
+    pub ne_down : AlignedPoint,
+    pub ne_up : AlignedPoint,
+    pub nw_down : AlignedPoint,
+    pub nw_up : AlignedPoint,
+    pub se_down : AlignedPoint,
+    pub se_up : AlignedPoint,
+    pub sw_down : AlignedPoint,
+    pub sw_up : AlignedPoint,
 
     pub percent_north : f32,
     pub percent_south : f32,
     pub percent_east : f32,
-    pub percent_west : f32
+    pub percent_west : f32,
+    pub percent_down : f32,
+    pub percent_up : f32
 }
 
 /*
@@ -103,59 +109,118 @@ impl Point {
     /*
      * Converts the point to an aligned point
      */
-    pub fn align(&self) -> Alignment {
-        let isobaric_hpa = 1013.25*(1.0 - self.altitude/44330.0).powf(5.255);
+     pub fn align(&self) -> Alignment {
+         let isobaric_hpa = 1013.25*(1.0 - self.altitude/44330.0).powf(5.255);
 
-        //TODO: make a fast lookup structure for this
-        let levels = [2, 3, 5, 7, 10, 20, 30, 50, 70, 100, 150, 200, 250, 300, 350, 400, 450, 500, 550, 600, 650, 700, 750, 800, 850, 900, 925, 950, 975, 1000];
-        let mut best_level : i32 = 1;
-        let mut best_level_diff : f32 = (isobaric_hpa - (best_level as f32)).abs();
+         //TODO: make a fast lookup structure for this
+         let levels = [2, 3, 5, 7, 10, 20, 30, 50, 70, 100, 150, 200, 250, 300, 350, 400, 450, 500, 550, 600, 650, 700, 750, 800, 850, 900, 925, 950, 975, 1000];
+         let mut best_level : i32 = 1;
+         let mut best_level_diff : f32 = (isobaric_hpa - (best_level as f32)).abs();
+         let mut best_level_index : usize = 0;
+         let mut curr_index : usize = 0;
 
-        for level_ref in levels.iter() {
-            let level = *level_ref as i32;
-            let diff = (isobaric_hpa - (level as f32)).abs();
+         for level_ref in levels.iter() {
+             let level = *level_ref as i32;
+             let diff = (isobaric_hpa - (level as f32)).abs();
 
-            if diff < best_level_diff {
-                best_level = level;
-                best_level_diff = diff;
-            }
-        }
+             if diff < best_level_diff {
+                 best_level = level;
+                 best_level_diff = diff;
+                 best_level_index = curr_index;
+             }
+             curr_index = curr_index + 1;
+         }
 
-        // Round to directional DATA_RESOLUTION
-        let mangled_lat = self.latitude / DATA_RESOLUTION;
-        let mangled_lon = self.longitude / DATA_RESOLUTION;
+         // Determine which level is up and which is down
+         let mut level_up : i32 = 0;
+         let mut level_up_diff : f32 = 0.0;
+         let mut level_down : i32 = 0;
+         let mut level_down_diff : f32 = 0.0;
 
-        let percent_north = mangled_lat.ceil() - mangled_lat.floor();
-        let percent_east = mangled_lon.ceil() - mangled_lon.floor();
+         let mut alt_floor :f32 = 0.0;
+         let mut alt_ceil : f32 = 1000.0;
 
-        Alignment {
-            ne: AlignedPoint {
-                latitude: Point::align_lat(mangled_lat.ceil()),
-                longitude: Point::align_lon(mangled_lon.ceil()),
-                level: best_level
-            },
-            nw: AlignedPoint {
-                latitude: Point::align_lat(mangled_lat.ceil()),
-                longitude: Point::align_lon(mangled_lon.floor()),
-                level: best_level
-            },
-            se: AlignedPoint {
-                latitude: Point::align_lat(mangled_lat.floor()),
-                longitude: Point::align_lon(mangled_lon.ceil()),
-                level: best_level
-            },
-            sw: AlignedPoint {
-                latitude: Point::align_lat(mangled_lat.floor()),
-                longitude: Point::align_lon(mangled_lon.floor()),
-                level: best_level
-            },
-            percent_north: percent_north,
-            percent_south: 1.0 - percent_north,
-            percent_east: percent_east,
-            percent_west: 1.0 - percent_east
-        }
+         if isobaric_hpa < alt_floor || isobaric_hpa > alt_ceil {
+             level_up = best_level;
+             level_down = best_level;
+             level_up_diff = best_level_diff;
+             level_down_diff = best_level_diff;
+         }
+         else if best_level > (isobaric_hpa as i32) {
+             level_up = best_level;
+             level_up_diff = best_level_diff;
 
-    }
+             level_down = levels[best_level_index - 1];
+             level_down_diff = (isobaric_hpa - (level_down as f32)).abs();
+         } else {
+         level_up = levels[best_level_index + 1];
+         level_up_diff = (isobaric_hpa - (level_down as f32)).abs();
+
+             level_down = best_level;
+             level_down_diff = best_level_diff;
+         }
+
+         // Round to directional DATA_RESOLUTION
+         let mangled_lat = self.latitude / DATA_RESOLUTION;
+         let mangled_lon = self.longitude / DATA_RESOLUTION;
+
+         let percent_north = mangled_lat.ceil() - mangled_lat.floor();
+         let percent_east = mangled_lon.ceil() - mangled_lon.floor();
+         let mut percent_down : f32 = 1.0;
+         if level_up != level_down {
+             percent_down = level_down_diff / ((level_up - level_down) as f32);
+         }
+
+         Alignment {
+             ne_down: AlignedPoint {
+                 latitude: Point::align_lat(mangled_lat.ceil()),
+                 longitude: Point::align_lon(mangled_lon.ceil()),
+                 level: level_down
+             },
+             ne_up: AlignedPoint {
+                 latitude: Point::align_lat(mangled_lat.ceil()),
+                 longitude: Point::align_lon(mangled_lon.ceil()),
+                 level: level_up
+             },
+             nw_down: AlignedPoint {
+                 latitude: Point::align_lat(mangled_lat.ceil()),
+                 longitude: Point::align_lon(mangled_lon.floor()),
+                 level: level_down
+             },
+             nw_up: AlignedPoint {
+                 latitude: Point::align_lat(mangled_lat.ceil()),
+                 longitude: Point::align_lon(mangled_lon.floor()),
+                 level: level_up
+             },
+             se_down: AlignedPoint {
+                 latitude: Point::align_lat(mangled_lat.floor()),
+                 longitude: Point::align_lon(mangled_lon.ceil()),
+                 level: level_down
+             },
+             se_up: AlignedPoint {
+                 latitude: Point::align_lat(mangled_lat.floor()),
+                 longitude: Point::align_lon(mangled_lon.ceil()),
+                 level: level_up
+             },
+             sw_down: AlignedPoint {
+                 latitude: Point::align_lat(mangled_lat.floor()),
+                 longitude: Point::align_lon(mangled_lon.floor()),
+                 level: level_down
+             },
+             sw_up: AlignedPoint {
+                 latitude: Point::align_lat(mangled_lat.floor()),
+                 longitude: Point::align_lon(mangled_lon.floor()),
+                 level: level_up
+             },
+             percent_north: percent_north,
+             percent_south: 1.0 - percent_north,
+             percent_east: percent_east,
+             percent_west: 1.0 - percent_east,
+             percent_down: percent_down,
+             percent_up: 1.0 - percent_down
+         }
+
+     }
 
     fn align_lat(rounded : f32) -> f32 {
         let mut lat = rounded * DATA_RESOLUTION;
