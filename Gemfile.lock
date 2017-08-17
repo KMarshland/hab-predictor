@@ -109,7 +109,7 @@ GEM
     mini_portile2 (2.1.0)
     minitest (5.10.2)
     multi_json (1.12.1)
-    newrelic_rpm (3.17.0.325)
+    newrelic_rpm (4.3.0.335)
     nio4r (2.0.0)
     nokogiri (1.7.2)
       mini_portile2 (~> 2.1.0)
@@ -227,5 +227,8 @@ DEPENDENCIES
   web-console (>= 3.3.0)
   whenever
 
+RUBY VERSION
+   ruby 2.4.0p0
+
 BUNDLED WITH
-   1.12.5
+   1.15.3

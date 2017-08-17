@@ -65,7 +65,8 @@ RUN useradd -ms /bin/bash -G app deploy
 RUN chown -R deploy:app /usr/local/bundle
 RUN chown -R run:app /var/run/puma
 
-EXPOSE 80
+ENV PORT 5000
+EXPOSE 5000
 
 # Add config files (optimizing cache)
 WORKDIR $APP_HOME
