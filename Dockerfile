@@ -65,7 +65,7 @@ RUN useradd -ms /bin/bash -G app deploy
 RUN chown -R deploy:app /usr/local/bundle
 RUN chown -R run:app /var/run/puma
 
-#EXPOSE 5000
+EXPOSE 5000
 
 # Add config files (optimizing cache)
 WORKDIR $APP_HOME
@@ -104,5 +104,4 @@ RUN chmod +x ./deploy/start_foreman.sh && \
 
 USER run
 
-#CMD ["./deploy/start_foreman.sh"]
-CMD PORT=$PORT bash ./deploy/start_foreman.sh
+CMD ["./deploy/start_foreman.sh"]
