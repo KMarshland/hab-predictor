@@ -2,6 +2,7 @@ use std::sync::Mutex;
 use std::fs;
 use std::env;
 use std::fs::DirEntry;
+use chrono::prelude::*;
 use predictor::point::*;
 use predictor::grib_reader::*;
 
@@ -156,6 +157,20 @@ impl DataSetReader {
         }
     }
 
+    pub fn get_datasets(&self) -> Result<Vec<DateTime<UTC>>, String> {
+        let mut result = vec![];
+
+        let readers = &self.grib_readers;
+
+        for i in 0..readers.len() {
+            let reader = &readers[i];
+
+            result.push(reader.time.clone());
+        }
+
+        Ok(result)
+    }
+
     fn get_reader(&mut self, point: &Point) -> Result<&mut Box<GribReader>, String> {
         // TODO: implement a binary search tree or alternative fast lookup
 
@@ -191,26 +206,36 @@ struct WrappedDataSetReader {
     reader: Option<DataSetReader>
 }
 
+macro_rules! get_reader_then {
+        ($sel:ident.$F:ident $( $arg:ident ),* ) => {
+            match $sel.initialize_reader() {
+                Ok(_) => {
+                    // take the reader temporarily
+                    let reader = $sel.reader.take();
+
+                    // unwrap will not panic, because we already know it has initialized properly
+                    let mut unwrapped = some_or_return_why!(reader, "No reader");
+
+                    let result = unwrapped.$F($($arg)*);
+
+                    // replace it
+                    $sel.reader = Some(unwrapped);
+
+                    result
+                },
+                Err(why) => Err(why)
+            }
+        };
+    }
+
 impl WrappedDataSetReader {
 
     pub fn velocity_at(&mut self, point: &Point) -> Result<Velocity, String> {
-        match self.initialize_reader() {
-            Ok(_) => {
-                // take the reader temporarily
-                let reader = self.reader.take();
+        get_reader_then!(self.velocity_at point)
+    }
 
-                // unwrap will not panic, because we already know it has initialized properly
-                let mut unwrapped = some_or_return_why!(reader, "No reader");
-
-                let velocity = unwrapped.velocity_at(point);
-
-                // replace it
-                self.reader = Some(unwrapped);
-
-                velocity
-            },
-            Err(why) => Err(why)
-        }
+    pub fn get_datasets(&mut self) -> Result<Vec<DateTime<UTC>>, String> {
+        get_reader_then!(self.get_datasets)
     }
 
     /*
@@ -257,6 +282,12 @@ lazy_static! {
 
 pub fn velocity_at(point: &Point) -> Result<Velocity, String> {
     let result = result_or_return_why!(READER.lock(), "Could not establish lock on reader").velocity_at(&point);
+
+    result
+}
+
+pub fn get_datasets() -> Result<Vec<DateTime<UTC>>, String> {
+    let result = result_or_return_why!(READER.lock(), "Could not establish lock on reader").get_datasets();
 
     result
 }
