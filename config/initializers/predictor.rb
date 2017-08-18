@@ -78,7 +78,7 @@ class Predictor
     def parse_response(response_str)
 
       if response_str.start_with? 'Error'
-        raise response_str
+        raise response_str.split('Error:').last.strip
       end
 
       JSON(response_str)

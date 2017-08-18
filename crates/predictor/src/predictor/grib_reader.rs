@@ -21,7 +21,7 @@ struct ProcessingGribReader {
 #[allow(dead_code)]
 pub struct GribReader {
     reference_time: ReferenceTime,
-    pub time: DateTime<UTC>,
+    pub time: DateTime<Utc>,
 
     path: String,
 
@@ -386,7 +386,7 @@ impl ProcessingGribReader {
         // 19. Second
         let second = result_or_return!(self.read_as_u64(1));
 
-        let time = UTC.ymd(year as i32, month as u32, day as u32).and_hms(hour as u32, minute as u32, second as u32);
+        let time = Utc.ymd(year as i32, month as u32, day as u32).and_hms(hour as u32, minute as u32, second as u32);
 
         Ok(GribReader {
             reference_time: reference_time,

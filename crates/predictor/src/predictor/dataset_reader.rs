@@ -138,7 +138,7 @@ impl UninitializedDataSetReader {
 
                 // TODO: enforce reader sort order
 
-                // println!("Readers initialized: {}ms", UTC::now().signed_duration_since(start_time).num_milliseconds());
+                // println!("Readers initialized: {}ms", Utc::now().signed_duration_since(start_time).num_milliseconds());
 
                 readers
             }
@@ -157,7 +157,7 @@ impl DataSetReader {
         }
     }
 
-    pub fn get_datasets(&self) -> Result<Vec<DateTime<UTC>>, String> {
+    pub fn get_datasets(&self) -> Result<Vec<DateTime<Utc>>, String> {
         let mut result = vec![];
 
         let readers = &self.grib_readers;
@@ -207,26 +207,28 @@ struct WrappedDataSetReader {
 }
 
 macro_rules! get_reader_then {
-        ($sel:ident.$F:ident $( $arg:ident ),* ) => {
-            match $sel.initialize_reader() {
-                Ok(_) => {
-                    // take the reader temporarily
-                    let reader = $sel.reader.take();
+    ($sel:ident.$F:ident $( $arg:ident ),* ) => {
 
-                    // unwrap will not panic, because we already know it has initialized properly
-                    let mut unwrapped = some_or_return_why!(reader, "No reader");
+        #[allow(unused_mut)]
+        match $sel.initialize_reader() {
+            Ok(_) => {
+                // take the reader temporarily
+                let reader = $sel.reader.take();
 
-                    let result = unwrapped.$F($($arg)*);
+                // unwrap will not panic, because we already know it has initialized properly
+                let mut unwrapped = some_or_return_why!(reader, "No reader");
 
-                    // replace it
-                    $sel.reader = Some(unwrapped);
+                let result = unwrapped.$F($($arg)*);
 
-                    result
-                },
-                Err(why) => Err(why)
-            }
-        };
-    }
+                // replace it
+                $sel.reader = Some(unwrapped);
+
+                result
+            },
+            Err(why) => Err(why)
+        }
+    };
+}
 
 impl WrappedDataSetReader {
 
@@ -234,7 +236,8 @@ impl WrappedDataSetReader {
         get_reader_then!(self.velocity_at point)
     }
 
-    pub fn get_datasets(&mut self) -> Result<Vec<DateTime<UTC>>, String> {
+
+    pub fn get_datasets(&mut self) -> Result<Vec<DateTime<Utc>>, String> {
         get_reader_then!(self.get_datasets)
     }
 
@@ -286,7 +289,7 @@ pub fn velocity_at(point: &Point) -> Result<Velocity, String> {
     result
 }
 
-pub fn get_datasets() -> Result<Vec<DateTime<UTC>>, String> {
+pub fn get_datasets() -> Result<Vec<DateTime<Utc>>, String> {
     let result = result_or_return_why!(READER.lock(), "Could not establish lock on reader").get_datasets();
 
     result

@@ -20,6 +20,17 @@ use chrono::prelude::*;
 #[macro_use]
 pub mod predictor;
 
+macro_rules! check_error {
+    ($result:expr) => {
+        match $result {
+            Ok(r) => r.serialize(),
+            Err(why) => {
+                "Error: ".to_string() + why.as_str()
+            }
+        }
+    }
+}
+
 ruby! {
     class Predictor {
         def test(path: String){
@@ -34,7 +45,7 @@ ruby! {
                     longitude: longitude as f32,
                     altitude: altitude as f32,
                     time: {
-                        UTC.datetime_from_str(time.as_str(), "%s").unwrap()
+                        Utc.datetime_from_str(time.as_str(), "%s").unwrap()
                     }
                 },
 
@@ -53,13 +64,7 @@ ruby! {
                 duration: chrono::Duration::seconds(duration as i64)
             });
 
-            match result {
-                Ok(r) => r.serialize(),
-                Err(why) => {
-                    "Error: ".to_string() + why.as_str()
-                }
-            }
-
+            check_error!(result)
         }
 
         def footprint(latitude: f64, longitude: f64, altitude: f64, time: String, burst_altitude_mean: f64, burst_altitude_std_dev: f64, ascent_rate_mean: f64, ascent_rate_std_dev: f64, descent_rate_mean: f64, descent_rate_std_dev: f64, trials: i64) -> String {
@@ -70,7 +75,7 @@ ruby! {
                     longitude: longitude as f32,
                     altitude: altitude as f32,
                     time: {
-                        UTC.datetime_from_str(time.as_str(), "%s").unwrap()
+                        Utc.datetime_from_str(time.as_str(), "%s").unwrap()
                     }
                 },
 
@@ -86,13 +91,7 @@ ruby! {
                 trials: trials as u32
             });
 
-            match result {
-                Ok(r) => r.serialize(),
-                Err(why) => {
-                    "Error: ".to_string() + why.as_str()
-                }
-            }
-
+            check_error!(result)
         }
 
         def guidance(latitude: f64, longitude: f64, altitude: f64, time: String, timeout: f64, duration: f64, time_increment: f64, altitude_variance: f64, altitude_increment: f64, compare_with_naive: bool) -> String {
@@ -102,7 +101,7 @@ ruby! {
                     longitude: longitude as f32,
                     altitude: altitude as f32,
                     time: {
-                        UTC.datetime_from_str(time.as_str(), "%s").unwrap()
+                        Utc.datetime_from_str(time.as_str(), "%s").unwrap()
                     }
                 },
 
@@ -117,13 +116,12 @@ ruby! {
                 compare_with_naive: compare_with_naive
             });
 
-            match result {
-                Ok(r) => r.serialize(),
-                Err(why) => {
-                    "Error: ".to_string() + why.as_str()
-                }
-            }
+            check_error!(result)
         }
+
+//        def datasets() -> String {
+//            check_error!(predictor::dataset_reader::get_datasets())
+//        }
 
     }
 }
