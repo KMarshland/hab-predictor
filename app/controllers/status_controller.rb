@@ -2,7 +2,8 @@ class StatusController < ApplicationController
 
   def status
     render json: {
-        up: true
+        up: true,
+        datasets: Predictor.datasets
     }
   end
 

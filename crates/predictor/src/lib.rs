@@ -119,9 +119,26 @@ ruby! {
             check_error!(result)
         }
 
-//        def datasets() -> String {
-//            check_error!(predictor::dataset_reader::get_datasets())
-//        }
+        def datasets() -> String {
+            match predictor::dataset_reader::get_datasets() {
+                Ok(datasets) => {
+                    let mut result = "[".to_string();
+                    for i in 0..datasets.len() {
+                        if i != 0 {
+                            result += ", ";
+                        }
+                        result += ("\"".to_string() + datasets[i].to_string().as_str() + "\"").as_str();
+                    }
+
+                    result += "]";
+
+                    result
+                },
+                Err(why) => {
+                    "Error: ".to_string() + why.as_str()
+                }
+            }
+        }
 
     }
 }

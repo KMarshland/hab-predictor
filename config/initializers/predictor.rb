@@ -73,6 +73,10 @@ class Predictor
       ))
     end
 
+    def datasets
+      parse_response RustPredictor.datasets
+    end
+
     private
 
     def parse_response(response_str)
