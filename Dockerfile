@@ -50,20 +50,14 @@ RUN curl 'https://software.ecmwf.int/wiki/download/attachments/3473437/grib_api-
 RUN ln -s /usr/bin/nodejs /usr/bin/node
 
 # Navigate to the proper directories
-ENV APP_HOME /var/app/current
+ENV APP_HOME /opt/app
 RUN mkdir -p $APP_HOME
-RUN mkdir -p /var/run/puma
 WORKDIR $APP_HOME
 
 # Create users and groups
 RUN groupadd -g 1000 app
 
 RUN useradd -ms /bin/bash -G app run
-RUN useradd -ms /bin/bash -G app deploy
-
-# Set permissions
-RUN chown -R deploy:app /usr/local/bundle
-RUN chown -R run:app /var/run/puma
 
 #EXPOSE 5000
 
@@ -79,7 +73,7 @@ COPY config/environments $APP_HOME/config/environments
 COPY config/initializers $APP_HOME/config/initializers
 COPY config/application.rb config/boot.rb config/cable.yml config/database.yml config/environment.rb config/puma.rb config/secrets.yml $APP_HOME/config/
 
-RUN chown -R deploy:app $APP_HOME
+RUN chown -R run:app $APP_HOME
 
 # Install gems
 ADD Gemfile Gemfile
@@ -96,7 +90,6 @@ RUN bundle exec rake build
 # RUN RAILS_ENV=production bundle exec rake assets:precompile
 
 # Set more permissions
-USER root
 RUN chmod +x ./deploy/start_foreman.sh && \
     chmod +x ./deploy/download_daemon.sh && \
     chown -R run:app $APP_HOME
@@ -104,5 +97,4 @@ RUN chmod +x ./deploy/start_foreman.sh && \
 
 USER run
 
-#CMD ["./deploy/start_foreman.sh"]
-CMD PORT=$PORT bash ./deploy/start_foreman.sh
+CMD ./deploy/start_foreman.sh
