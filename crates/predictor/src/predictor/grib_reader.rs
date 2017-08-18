@@ -2,6 +2,7 @@ use std::io::prelude::*;
 use std::fs::File;
 use std::mem;
 use chrono::prelude::*;
+use chrono::Duration;
 use predictor::point::*;
 use lru_cache::LruCache;
 
@@ -21,6 +22,7 @@ struct ProcessingGribReader {
 #[allow(dead_code)]
 pub struct GribReader {
     reference_time: ReferenceTime,
+    pub created_at: DateTime<Utc>,
     pub time: DateTime<Utc>,
 
     path: String,
@@ -386,10 +388,16 @@ impl ProcessingGribReader {
         // 19. Second
         let second = result_or_return!(self.read_as_u64(1));
 
-        let time = Utc.ymd(year as i32, month as u32, day as u32).and_hms(hour as u32, minute as u32, second as u32);
+        let created_at = Utc.ymd(year as i32, month as u32, day as u32).and_hms(hour as u32, minute as u32, second as u32);
+
+        let hours_string : String = self.path.chars().skip(self.path.len() - 8).take(3).collect();
+        let hours_in_future : u32 = result_or_return_why!(hours_string.parse(), "Could not parse hours string");
+
+        let time = created_at + Duration::hours(hours_in_future as i64);
 
         Ok(GribReader {
             reference_time: reference_time,
+            created_at: created_at,
             time: time,
             path: self.path.clone(),
             cache: LruCache::new(CACHE_SIZE)
