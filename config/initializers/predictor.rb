@@ -29,7 +29,7 @@ class Predictor
           raise ArgumentError, 'Missing required parameter duration' if duration.blank?
       end
 
-      JSON(RustPredictor.predict(
+      parse_response(RustPredictor.predict(
                        lat.to_f,
                        lon.to_f,
                        altitude.to_f,
@@ -43,7 +43,7 @@ class Predictor
     end
 
     def footprint(lat:, lon:, altitude:, time:, burst_altitude_mean:, burst_altitude_std_dev:, ascent_rate_mean:, ascent_rate_std_dev:, descent_rate_mean:, descent_rate_std_dev:, trials:)
-      JSON(RustPredictor.footprint(
+      parse_response(RustPredictor.footprint(
           lat.to_f,
           lon.to_f,
           altitude.to_f,
@@ -59,7 +59,7 @@ class Predictor
     end
 
     def guidance(lat:, lon:, altitude:, time:, timeout:, duration:, time_increment:180, altitude_variance:5, altitude_increment:500, compare_with_naive: false)
-      JSON(RustPredictor.guidance(
+      parse_response(RustPredictor.guidance(
           lat.to_f,
           lon.to_f,
           altitude.to_f,
@@ -71,6 +71,18 @@ class Predictor
           altitude_increment.to_f,
           compare_with_naive
       ))
+    end
+
+    private
+
+    def parse_response(response_str)
+
+      if response_str.start_with? 'Error'
+        raise response_str
+      end
+
+      JSON(response_str)
+
     end
 
   end

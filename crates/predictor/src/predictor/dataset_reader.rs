@@ -131,7 +131,7 @@ impl UninitializedDataSetReader {
                             some_or_return_why!(path.to_str(), "Could not read path").to_string()
                         );
 
-                        readers.push(Box::new(reader));
+                        readers.push(Box::new(result_or_return!(reader)));
                     }
                 }
 
@@ -200,7 +200,7 @@ impl WrappedDataSetReader {
                 let reader = self.reader.take();
 
                 // unwrap will not panic, because we already know it has initialized properly
-                let mut unwrapped = reader.unwrap();
+                let mut unwrapped = some_or_return_why!(reader, "No reader");
 
                 let velocity = unwrapped.velocity_at(point);
 
@@ -255,8 +255,8 @@ lazy_static! {
     ));
 }
 
-pub fn velocity_at(point: &Point) -> Velocity {
-    let result = READER.lock().unwrap().velocity_at(&point);
+pub fn velocity_at(point: &Point) -> Result<Velocity, String> {
+    let result = result_or_return_why!(READER.lock(), "Could not establish lock on reader").velocity_at(&point);
 
-    result.unwrap()
+    result
 }

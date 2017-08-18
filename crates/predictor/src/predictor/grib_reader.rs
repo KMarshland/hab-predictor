@@ -51,12 +51,12 @@ enum GribReadError {
 
 impl GribReader {
 
-    pub fn new(path: String) -> GribReader {
+    pub fn new(path: String) -> Result<GribReader, String> {
         let mut reader = UnprocessedGribReader {
             path: path
         };
 
-        reader.read().unwrap()
+        reader.read()
     }
 
     /*
@@ -126,7 +126,7 @@ impl GribReader {
 
         let proper_filename = {
             let mut parts = self.path.split('.');
-            parts.next().unwrap().to_string() +
+            some_or_return_why!(parts.next(), "Could not get filename").to_string() +
                 "/L" + aligned.level.to_string().as_str() +
                 "/C" + grid_lat.to_string().as_str() + "_" + grid_lon.to_string().as_str() +
                 ".gribp"
@@ -141,7 +141,7 @@ impl GribReader {
      */
     fn scan_file(&mut self, filename : String, aligned : &AlignedPoint) -> Result<Velocity, String> {
         let name = &filename;
-        let mut file = &mut File::open(name).unwrap();
+        let mut file = &mut result_or_return_why!(File::open(name), "Could not open file");
 
         let mut u : f32 = 0.0;
         let mut v : f32 = 0.0;
@@ -272,7 +272,7 @@ impl GribReader {
 impl UnprocessedGribReader {
 
     fn read(&mut self) -> Result<GribReader, String> {
-        let file = File::open(self.get_path()).unwrap();
+        let file = result_or_return_why!(File::open(self.get_path()), "Could not open file");
 
         let mut reader = ProcessingGribReader {
             bytes_read: 0,
@@ -404,7 +404,7 @@ impl ProcessingGribReader {
 
         {
             let mut handle = self.get_file().take(number_of_bytes);
-            handle.read_to_end(&mut buf).unwrap();
+            result_or_return_why!(handle.read_to_end(&mut buf), "Could not read through handle");
         }
 
         if buf.len() as u64 != number_of_bytes {

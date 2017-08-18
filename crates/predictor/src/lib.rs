@@ -28,7 +28,7 @@ ruby! {
 
         def predict(latitude: f64, longitude: f64, altitude: f64, time: String, profile: String, burst_altitude: f64, ascent_rate: f64, descent_rate: f64, duration: f64) -> String {
 
-            predictor::predictor::predict(predictor::predictor::PredictorParams {
+            let result = predictor::predictor::predict(predictor::predictor::PredictorParams {
                 launch: predictor::point::Point {
                     latitude: latitude as f32,
                     longitude: longitude as f32,
@@ -51,13 +51,20 @@ ruby! {
                 descent_rate: descent_rate as f32,
 
                 duration: chrono::Duration::seconds(duration as i64)
-            }).unwrap().serialize()
+            });
+
+            match result {
+                Ok(r) => r.serialize(),
+                Err(why) => {
+                    "Error: ".to_string() + why.as_str()
+                }
+            }
 
         }
 
         def footprint(latitude: f64, longitude: f64, altitude: f64, time: String, burst_altitude_mean: f64, burst_altitude_std_dev: f64, ascent_rate_mean: f64, ascent_rate_std_dev: f64, descent_rate_mean: f64, descent_rate_std_dev: f64, trials: i64) -> String {
 
-            predictor::footprint::calculate_footprint(predictor::footprint::FootprintParams {
+            let result = predictor::footprint::calculate_footprint(predictor::footprint::FootprintParams {
                 launch: predictor::point::Point {
                     latitude: latitude as f32,
                     longitude: longitude as f32,
@@ -77,12 +84,19 @@ ruby! {
                 descent_rate_std_dev: descent_rate_std_dev as f32,
 
                 trials: trials as u32
-            }).unwrap().serialize()
+            });
+
+            match result {
+                Ok(r) => r.serialize(),
+                Err(why) => {
+                    "Error: ".to_string() + why.as_str()
+                }
+            }
 
         }
 
         def guidance(latitude: f64, longitude: f64, altitude: f64, time: String, timeout: f64, duration: f64, time_increment: f64, altitude_variance: f64, altitude_increment: f64, compare_with_naive: bool) -> String {
-        predictor::guidance::guidance(predictor::guidance::GuidanceParams {
+            let result = predictor::guidance::guidance(predictor::guidance::GuidanceParams {
                 launch: predictor::point::Point {
                     latitude: latitude as f32,
                     longitude: longitude as f32,
@@ -101,7 +115,14 @@ ruby! {
                 altitude_increment: altitude_increment as u32,
 
                 compare_with_naive: compare_with_naive
-            }).unwrap().serialize()
+            });
+
+            match result {
+                Ok(r) => r.serialize(),
+                Err(why) => {
+                    "Error: ".to_string() + why.as_str()
+                }
+            }
         }
 
     }

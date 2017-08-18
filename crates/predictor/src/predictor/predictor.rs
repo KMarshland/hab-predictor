@@ -124,7 +124,7 @@ fn standard_predict(params : StandardPredictorParams) -> Result<Prediction, Stri
     };
 
     while current.altitude < params.burst_altitude {
-        let velocity = velocity_at(&current) + &ascent_velocity;
+        let velocity = result_or_return!(velocity_at(&current)) + &ascent_velocity;
 
         current = current + &velocity;
         ascent.push(current.clone());
@@ -142,7 +142,7 @@ fn standard_predict(params : StandardPredictorParams) -> Result<Prediction, Stri
         vertical: -params.descent_rate
     };
     while current.altitude > 0.0 {
-        let velocity = velocity_at(&current) + &descent_velocity;
+        let velocity = result_or_return!(velocity_at(&current)) + &descent_velocity;
 
         current = current + &velocity;
         descent.push(current.clone());
@@ -163,7 +163,7 @@ fn valbal_predict(params : ValBalPredictorParams) -> Result<Prediction, String> 
     let end_time = launch_time + params.duration;
 
     while current.time < end_time {
-        let velocity = velocity_at(&current);
+        let velocity = result_or_return!(velocity_at(&current));
 
         current = current + &velocity;
         positions.push(current.clone());
