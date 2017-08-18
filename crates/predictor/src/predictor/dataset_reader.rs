@@ -181,21 +181,21 @@ impl DataSetReader {
         }
 
         let mut best_index = 0;
-        let mut best_seconds = {
-            let best_reader = &readers[0];
-            best_reader.time.signed_duration_since(point.time).num_seconds().abs()
-        };
-
-        for i in 1..readers.len() {
-            let reader = &mut readers[i];
-
-            let abs_seconds = reader.time.signed_duration_since(point.time).num_seconds().abs();
-
-            if abs_seconds < best_seconds {
-                best_index = i;
-                best_seconds = abs_seconds;
-            }
-        }
+//        let mut best_seconds = {
+//            let best_reader = &readers[0];
+//            best_reader.time.signed_duration_since(point.time).num_seconds().abs()
+//        };
+//
+//        for i in 1..readers.len() {
+//            let reader = &mut readers[i];
+//
+//            let abs_seconds = reader.time.signed_duration_since(point.time).num_seconds().abs();
+//
+//            if abs_seconds < best_seconds {
+//                best_index = i;
+//                best_seconds = abs_seconds;
+//            }
+//        }
 
         Ok(&mut readers[best_index])
     }
