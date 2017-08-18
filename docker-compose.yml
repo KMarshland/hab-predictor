@@ -6,4 +6,5 @@ services:
     ports:
       - "5000:5000"
     environment:
+      - PORT=5000
       - SECRET_KEY_BASE=8f68f50c814a8707bfc160c53129dfb232c7d281a4db6fc00612db7a89679a4ab72c05812eabdebeb4a1f64383ddef78b2ddb12a47b443a002ff8865c33a30fb
