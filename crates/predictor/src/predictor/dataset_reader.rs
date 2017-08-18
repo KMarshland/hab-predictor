@@ -19,17 +19,17 @@ impl UninitializedDataSetReader {
         Ok(DataSetReader {
             grib_readers: {
 
-                let folders = fs::read_dir(self.dataset_directory.as_str()).unwrap();
+                let folders = result_or_return_why!(fs::read_dir(self.dataset_directory.as_str()), "Could not read dir");
 
                 // figure out which data directory to read from
                 let mut best_date = 0;
                 let mut best_dir : Option<DirEntry> = None;
 
                 for path in folders {
-                    let dir = path.unwrap();
+                    let dir = result_or_return_why!(path, "Could not read path");
 
                     let file_name = dir.file_name();
-                    let name = file_name.to_str().unwrap();
+                    let name = some_or_return_why!(file_name.to_str(), "Could not read filename");
 
                     let date_num = name.parse::<i32>();
 
@@ -55,9 +55,12 @@ impl UninitializedDataSetReader {
                 let mut bucket12 : Vec<DirEntry> = vec![];
                 let mut bucket18 : Vec<DirEntry> = vec![];
 
-                let files = fs::read_dir(best_dir.unwrap().path()).unwrap();
+                let files = result_or_return_why!(fs::read_dir(
+                    some_or_return_why!(best_dir, "Could not read dir").path()
+                ), "Could not read dir");
+
                 for path in files {
-                    let file = path.unwrap();
+                    let file = result_or_return_why!(path, "Could not get path");
                     let undone_path = file.path();
 
                     // nested matching makes me want to die. We should refactor
@@ -80,7 +83,7 @@ impl UninitializedDataSetReader {
                     }
 
                     let file_name = file.file_name();
-                    let name = file_name.to_str().unwrap();
+                    let name = some_or_return_why!(file_name.to_str(), "Could not read filename");
 
                     let parts = name.split("_").collect::<Vec<&str>>();
                     let bucket = parts[3];
@@ -118,10 +121,15 @@ impl UninitializedDataSetReader {
                 for file in bucket {
                     let path = file.path();
 
-                    let extension = path.extension().unwrap().to_str().unwrap();
+                    let extension = some_or_return_why!(
+                        some_or_return_why!(path.extension(), "Could not read extenstion").to_str(),
+                        "Could not read extension"
+                    );
 
                     if extension == "grb2" {
-                        let reader = GribReader::new(path.to_str().unwrap().to_string());
+                        let reader = GribReader::new(
+                            some_or_return_why!(path.to_str(), "Could not read path").to_string()
+                        );
 
                         readers.push(Box::new(reader));
                     }
