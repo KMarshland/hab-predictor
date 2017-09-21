@@ -227,16 +227,26 @@ fn get_url_queue(at : DateTime<Utc>) -> VecDeque<String> {
  */
 fn download_file(url : &String, to : &path::PathBuf) -> Result<bool, PreprocessorError> {
 
-    // if it's already downloaded, don't download it again
-    if to.exists() {
-        println!("\t Already downloaded: {}", &url);
+    // if it doesn't exist, then we don't care
+    if !dataset_exists(&url)? {
+        println!("\t\t Does not exist: {}", &url);
         return Ok(false);
     }
 
-    // if it doesn't exist, then we don't care
-    if !dataset_exists(&url)? {
-        println!("\t Does not exist: {}", &url);
-        return Ok(false);
+    let bytes = get_content_length(url)?;
+
+    // if it's already downloaded, don't download it again
+    if to.exists() {
+        let metadata = fs::metadata(to)?;
+
+        // check that it actually downloaded the full thing
+        if metadata.len() == bytes {
+            println!("\t Already downloaded: {}", &url);
+            return Ok(false);
+        } else {
+            // rename it to what it is, a partial dataset
+            fs::rename(to, to.with_extension("grb2.partial"))?;
+        }
     }
 
     // if there's a partially downloaded dataset, remove it
@@ -245,7 +255,7 @@ fn download_file(url : &String, to : &path::PathBuf) -> Result<bool, Preprocesso
         fs::remove_file(to.with_extension("grb2.partial"))?;
     }
 
-    let bytes = get_content_length(url)?;
+
     println!("\t Downloading: {} ({} bytes)", &url, bytes);
 
     Command::new("curl")
