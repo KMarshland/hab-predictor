@@ -223,12 +223,21 @@ fn download_file(url : &String, to : &path::PathBuf) -> Result<bool, io::Error> 
         return Ok(false);
     }
 
+    // if there's a partially downloaded dataset, remove it
+    if to.with_extension("grb2.partial").exists() {
+        println!("\t Removing partially downloaded dataset: {}", &url);
+        fs::remove_file(to.with_extension("grb2.partial"))?;
+    }
+
     println!("\t Downloading: {}", &url);
 
     Command::new("curl")
-        .arg("-o").arg(to)
+        .arg("-o").arg(to.with_extension("grb2.partial"))
         .arg(&url)
         .output()?;
+
+    // rename it to a complete one
+    fs::rename(to.with_extension("grb2.partial"), to)?;
 
     Ok(true)
 }
