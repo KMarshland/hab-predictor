@@ -42,6 +42,60 @@ pub fn download() -> Result<(), PreprocessorError> {
     println!("Downloading dataset {}\n  ", url);
     download_dataset(at)?;
 
+    clean()?;
+
+    Ok(())
+}
+
+struct RawDataDir {
+    name_as_number: u32,
+    path: path::PathBuf
+}
+
+/*
+ * Deletes old data
+ */
+fn clean() -> Result<(), io::Error> {
+
+    // build a list of directories of raw data (that have the right format)
+    let dir = env::current_dir().unwrap().join("data").join("raw");
+
+    let mut datasets : Vec<RawDataDir> = vec![];
+    let mut latest : u32 = 0; // and keep track of which was latest, as long as you're at it
+
+    for entry in fs::read_dir(dir)? {
+        let entry = entry?;
+        let path = entry.path();
+
+        match (&path).file_name() {
+            Some(name) => {
+                match name.to_str().unwrap().to_string().parse::<u32>() {
+                    Ok(number) => {
+                        if number > latest {
+                            latest = number;
+                        }
+
+                        datasets.push(RawDataDir {
+                            name_as_number: number,
+                            path: path.clone()
+                        });
+                    },
+                    Err(_) => {}
+                }
+            },
+            None => {}
+        }
+    }
+
+    for entry in datasets {
+        if entry.name_as_number == latest {
+            continue;
+        }
+
+        println!("Clean: removing {}", &entry.path.to_str().unwrap());
+        fs::remove_dir_all(&entry.path)?;
+    }
+
     Ok(())
 }
 
@@ -145,7 +199,6 @@ fn get_url_queue(at : DateTime<Utc>) -> VecDeque<String> {
 
             let url = format!("{}/gfs_4_{}_{}_{}.grb2", base_url, at.format("%Y%m%d"), period, offset);
             to_download.push_back(url);
-            return to_download;
         }
     }
 
@@ -156,7 +209,7 @@ fn get_url_queue(at : DateTime<Utc>) -> VecDeque<String> {
  * Downloads the file at the given url to the given pathname
  * Returns a result boolean which represents whether it was actually downloaded
  */
-fn download_file(url : &String, to : &path::PathBuf) -> Result<bool, PreprocessorError> {
+fn download_file(url : &String, to : &path::PathBuf) -> Result<bool, io::Error> {
 
     // if it's already downloaded, don't download it again
     if to.exists() {
