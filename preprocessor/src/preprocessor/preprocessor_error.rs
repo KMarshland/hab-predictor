@@ -6,7 +6,8 @@ use reqwest;
 #[derive(Debug)]
 pub enum PreprocessorError {
     IOError(io::Error),
-    ReqwestError(reqwest::Error)
+    ReqwestError(reqwest::Error),
+    GenericError
 }
 
 impl From<io::Error> for PreprocessorError {

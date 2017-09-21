@@ -45,3 +45,4 @@ datasets/*
 config/newrelic.yml
 
 preprocessor/target
+preprocessor/data/*

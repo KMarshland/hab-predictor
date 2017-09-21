@@ -5,10 +5,10 @@ use std::cmp;
 use std::sync::{Mutex, Arc};
 use std::env;
 use std::fs;
+use std::path;
 
 use chrono::prelude::*;
 use chrono::Duration;
-use reqwest;
 use std::thread;
 
 use preprocessor::preprocessor_error::*;
@@ -39,7 +39,7 @@ pub fn download() -> Result<(), PreprocessorError> {
         at = at - Duration::days(1);
     }
 
-    println!("Downloading dataset {}", url);
+    println!("Downloading dataset {}\n  ", url);
     download_dataset(at)?;
 
     Ok(())
@@ -70,7 +70,7 @@ fn dataset_exists(url : &String) -> Result<bool, io::Error> {
 fn download_dataset(at : DateTime<Utc>) -> Result<(), PreprocessorError> {
 
     // make the folder for the data to go in
-    make_data_directory(at)?;
+    let directory = make_data_directory(at)?;
 
     // generate a list of all the urls you need to download
     let to_download = get_url_queue(at);
@@ -81,17 +81,30 @@ fn download_dataset(at : DateTime<Utc>) -> Result<(), PreprocessorError> {
 
     let queue = Arc::new(Mutex::new(to_download));
 
-    for i in 0..worker_number {
+    for _ in 0..worker_number {
         let queue = queue.clone();
-        let thread_number = i.clone();
+        let directory = directory.clone();
 
+        // spawn a worker thread
         let handle = thread::spawn(move || {
             loop {
                 let mut download_queue = queue.lock().unwrap();
 
+                // pop urls until the queue is empty
                 match download_queue.pop_front() {
                     Some(url) => {
-                        println!("Thread {}: {}", thread_number, url);
+                        let filename = (&url).split("/").last().unwrap();
+                        let to = directory.join(filename);
+
+                        let outcome = download_file(&url, &to);
+
+                        // clean up if it failed
+                        match outcome {
+                            Ok(_) => {},
+                            Err(_) => {
+                                fs::remove_file(&to).unwrap();
+                            }
+                        }
                     },
                     None => {
                         break
@@ -113,11 +126,12 @@ fn download_dataset(at : DateTime<Utc>) -> Result<(), PreprocessorError> {
 /*
  * Sets up the directory for the data for the provided data
  */
-fn make_data_directory(at : DateTime<Utc>) -> Result<(), io::Error> {
+fn make_data_directory(at : DateTime<Utc>) -> Result<path::PathBuf, io::Error> {
     let path = env::current_dir().unwrap().join("data").join("raw").join(at.format("%Y%m%d").to_string());
-    fs::create_dir_all(path)?;
 
-    Ok(())
+    fs::create_dir_all(&path)?;
+
+    Ok(path)
 }
 
 fn get_url_queue(at : DateTime<Utc>) -> VecDeque<String> {
@@ -131,9 +145,38 @@ fn get_url_queue(at : DateTime<Utc>) -> VecDeque<String> {
 
             let url = format!("{}/gfs_4_{}_{}_{}.grb2", base_url, at.format("%Y%m%d"), period, offset);
             to_download.push_back(url);
+            return to_download;
         }
     }
 
     to_download
+}
+
+/*
+ * Downloads the file at the given url to the given pathname
+ * Returns a result boolean which represents whether it was actually downloaded
+ */
+fn download_file(url : &String, to : &path::PathBuf) -> Result<bool, PreprocessorError> {
+
+    // if it's already downloaded, don't download it again
+    if to.exists() {
+        println!("\t Already downloaded: {}", &url);
+        return Ok(false);
+    }
+
+    // if it doesn't exist, then we don't care
+    if !dataset_exists(&url)? {
+        println!("\t Does not exist: {}", &url);
+        return Ok(false);
+    }
+
+    println!("\t Downloading: {}", &url);
+
+    Command::new("curl")
+        .arg("-o").arg(to)
+        .arg(&url)
+        .output()?;
+
+    Ok(true)
 }
 
