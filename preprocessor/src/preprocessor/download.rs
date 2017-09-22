@@ -22,7 +22,7 @@ const DOWNLOAD_WORKERS : u32 = 10;
  * Finds out which dataset needs to be downloaded, then downloads it
  * Chooses the most recent dataset
  */
-pub fn download() -> Result<(), PreprocessorError> {
+pub fn download() -> Result<DateTime<Utc>, PreprocessorError> {
     let mut at: DateTime<Utc> = Utc::now();
     let mut url : String;
 
@@ -44,7 +44,7 @@ pub fn download() -> Result<(), PreprocessorError> {
 
     clean()?;
 
-    Ok(())
+    Ok(at)
 }
 
 struct RawDataDir {

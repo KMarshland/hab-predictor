@@ -8,6 +8,7 @@ pub enum PreprocessorError {
     IOError(io::Error),
     ReqwestError(reqwest::Error),
     NoContentLengthError,
+    InvalidDatasetError,
     GenericError
 }
 
