@@ -5,6 +5,7 @@ namespace :preprocessor do
     if args[:url].present?
       # DownloadWorker.new.perform(args[:url])
       # PreprocessorWorker.new.perform(args[:url])
+      ZipWorker.new.perform(args[:url])
     else
       StartPreprocessorWorker.new.perform
     end

@@ -40,6 +40,9 @@ gem 'newrelic_rpm'
 
 gem 'http'
 
+# zip files
+gem 'rubyzip', '>= 1.0.0'
+
 # worker management
 gem 'foreman'
 gem 'sidekiq'
