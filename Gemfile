@@ -12,6 +12,7 @@ gem 'rails', '~> 5.0.2'
 
 # no db
 gem 'activerecord-nulldb-adapter'
+gem 'pg'
 
 # Use Puma as the app server
 gem 'puma', '~> 3.0'

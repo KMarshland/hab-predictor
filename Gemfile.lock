@@ -113,6 +113,7 @@ GEM
     nio4r (2.0.0)
     nokogiri (1.7.2)
       mini_portile2 (~> 2.1.0)
+    pg (0.21.0)
     public_suffix (2.0.5)
     puma (3.8.2)
     rack (2.0.3)
@@ -212,6 +213,7 @@ DEPENDENCIES
   jquery-rails
   listen (~> 3.0.5)
   newrelic_rpm
+  pg
   predictor!
   puma (~> 3.0)
   rack-cors
@@ -231,4 +233,4 @@ RUBY VERSION
    ruby 2.4.0p0
 
 BUNDLED WITH
-   1.15.3
+   1.16.0.pre.2

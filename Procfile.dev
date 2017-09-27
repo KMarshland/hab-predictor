@@ -1,3 +1,2 @@
 web: rake build && bundle exec puma -C config/puma.rb
-worker: bundle exec sidekiq -c 3 -v
 redis: redis-server
