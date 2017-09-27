@@ -49,3 +49,6 @@ config/newrelic.yml
 
 preprocessor/target
 preprocessor/data/*
+
+# Ignore application configuration
+/config/application.yml

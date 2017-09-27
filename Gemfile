@@ -43,6 +43,12 @@ gem 'http'
 # zip files
 gem 'rubyzip', '>= 1.0.0'
 
+# upload to azure
+gem 'azure-storage'
+
+# environment variables
+gem 'figaro'
+
 # worker management
 gem 'foreman'
 gem 'sidekiq'
