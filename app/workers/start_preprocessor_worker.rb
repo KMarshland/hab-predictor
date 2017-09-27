@@ -22,6 +22,9 @@ class StartPreprocessorWorker
       at -= 1.day
     end
 
+    # see which ones you've already processed
+    @processed_datasets = processed_datasets(at)
+
     # download it
     start_preprocessors at
   end
@@ -92,8 +95,28 @@ class StartPreprocessorWorker
     workers.map(&:join)
   end
 
+  def processed_datasets(at)
+    unless ENV['AZURE_STORAGE_ACCOUNT'].present? && ENV['AZURE_STORAGE_ACCESS_KEY'].present?
+      raise 'No Azure Storage Keys provided'
+    end
+
+    Azure::Storage.setup(storage_account_name: ENV['AZURE_STORAGE_ACCOUNT'], storage_access_key: ENV['AZURE_STORAGE_ACCESS_KEY'])
+    blobs = Azure::Storage::Blob::BlobService.new
+    blobs.with_filter(Azure::Storage::Core::Filter::ExponentialRetryPolicyFilter.new)
+
+    blobs.list_blobs('data', prefix: "gfs_4_#{at.strftime('%Y%m%d')}").map do |blob|
+      blob.name
+    end
+  end
+
+  def has_processed?(url)
+    filename = url.split('/').last.split('.').first + '.zip'
+    @processed_datasets.include? filename
+  end
+
   def start_preprocessor(url)
     return :skipped unless url_exists? url
+    return :skipped if has_processed? url
 
     command = "heroku run rake preprocessor:run[#{url}]"
 
