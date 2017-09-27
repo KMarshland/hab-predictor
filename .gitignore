@@ -41,6 +41,8 @@ lib/data/*
 .byebug_history
 
 datasets/*
+*.grb2
+*.grb2.partial
 
 config/newrelic.yml
 

@@ -95,7 +95,7 @@ class StartPreprocessorWorker
   def start_preprocessor(url)
     return :skipped unless url_exists? url
 
-    command = "heroku run rake [#{url}]"
+    command = "heroku run rake preprocessor:run[#{url}]"
 
     puts command
 
