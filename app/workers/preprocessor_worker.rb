@@ -9,13 +9,14 @@ class PreprocessorWorker
 
   def perform(dataset_url)
 
-    path = Rails.root.join('data', dataset_url.split('/').pop)
+    filename = dataset_url.split('/').pop
+    path = Rails.root.join('data', filename)
 
-    puts "Converting #{path}"
+    puts "Preprocessing #{filename}"
 
     true_start = Time.now
 
-    base_dir = path.split('.').first
+    base_dir = path.to_s.split('.').first
 
     FileUtils::mkdir_p base_dir
 
