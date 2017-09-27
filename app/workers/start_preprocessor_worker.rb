@@ -10,7 +10,6 @@ class StartPreprocessorWorker
 
     # find the folder the data lives in
     at = at.utc.beginning_of_day
-    url = nil
 
     while true
       url = "https://nomads.ncdc.noaa.gov/data/gfs4/#{at.strftime('%Y%m')}/#{at.strftime('%Y%m%d')}/"
@@ -24,6 +23,11 @@ class StartPreprocessorWorker
 
     # see which ones you've already processed
     @processed_datasets = processed_datasets(at)
+
+    puts
+    puts 'Has already processed: '
+    puts @processed_datasets
+    puts
 
     # download it
     start_preprocessors at
@@ -95,7 +99,7 @@ class StartPreprocessorWorker
     workers.map(&:join)
   end
 
-  def processed_datasets(at)
+  def processed_datasets(on_date)
     unless ENV['AZURE_STORAGE_ACCOUNT'].present? && ENV['AZURE_STORAGE_ACCESS_KEY'].present?
       raise 'No Azure Storage Keys provided'
     end
@@ -104,21 +108,21 @@ class StartPreprocessorWorker
     blobs = Azure::Storage::Blob::BlobService.new
     blobs.with_filter(Azure::Storage::Core::Filter::ExponentialRetryPolicyFilter.new)
 
-    blobs.list_blobs('data', prefix: "gfs_4_#{at.strftime('%Y%m%d')}").map do |blob|
-      blob.name
+    blobs.list_blobs('data', prefix: "gfs_4_#{on_date.strftime('%Y%m%d')}").map do |blob|
+      blob.name.split('.').first
     end
   end
 
   def has_processed?(url)
-    filename = url.split('/').last.split('.').first + '.zip'
-    @processed_datasets.include? filename
+    name = url.split('/').last.split('.').first
+    @processed_datasets.include? name
   end
 
   def start_preprocessor(url)
     return :skipped unless url_exists? url
     return :skipped if has_processed? url
 
-    command = "heroku run rake preprocessor:run[#{url}]"
+    command = "heroku run:detached rake preprocessor:run[#{url}]"
 
     puts command
 
