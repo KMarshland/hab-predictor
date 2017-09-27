@@ -1,4 +1,5 @@
 require 'open3'
+require 'fileutils'
 
 class DownloadWorker
 
@@ -7,12 +8,13 @@ class DownloadWorker
 
     @dataset_url = dataset_url
 
+    FileUtils::mkdir_p Rails.root.join('data')
+
     puts "Downloading #{@dataset_url}"
 
-    @filename = @dataset_url.split('/').pop
+    @output_path = Rails.root.join('data', @dataset_url.split('/').pop)
 
-    @filestem = @filename.split('.').first
-    @partial_name = "#{@filestem}.grb2.partial"
+    @partial_name = "#{@output_path.to_s.split('.').first}.grb2.partial"
 
     puts "Downloading #{remote_bytes} bytes"
 
@@ -26,7 +28,9 @@ class DownloadWorker
       raise "Only downloaded #{local_bytes} bytes, expected to download #{remote_bytes}"
     end
 
-    File.rename(@partial_name, @filename)
+    File.rename(@partial_name, @output_path)
+
+    puts 'Download complete'
   end
 
   # gets the size, in bytes, from the Content-Length header of the remote

@@ -7,7 +7,10 @@ class PreprocessorWorker
   APPROX_TUPLE_COUNT = 10_500_000
 
 
-  def perform(path)
+  def perform(dataset_url)
+
+    path = Rails.root.join('data', dataset_url.split('/').pop)
+
     puts "Converting #{path}"
 
     true_start = Time.now

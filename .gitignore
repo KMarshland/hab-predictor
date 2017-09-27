@@ -40,6 +40,7 @@ lib/data/*
 # Ignore Byebug command history file.
 .byebug_history
 
+data/*
 datasets/*
 *.grb2
 *.grb2.partial
