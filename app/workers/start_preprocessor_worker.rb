@@ -4,7 +4,7 @@ class StartPreprocessorWorker
   PREDICTION_MAX_HOURS = 384
   PREDICTION_PERIODS = %w(0000 0600 1200 1800)
   HOUR_RESOLUTION = 3
-  WORKER_POOL_SIZE = (ENV['DOWNLOAD_POOL_SIZE'] || 80).to_i
+  WORKER_POOL_SIZE = (ENV['DOWNLOAD_POOL_SIZE'] || 90).to_i
 
   def perform(at=DateTime.now)
 
@@ -122,9 +122,10 @@ class StartPreprocessorWorker
     return :skipped unless url_exists? url
     return :skipped if has_processed? url
 
-    command = "heroku run:detached rake preprocessor:run[#{url}]"
+    command = "heroku run:detached rake preprocessor:run[#{url}] --app=dry-brushlands-50210"
 
     puts command
+    `#{command}`
 
   end
 
