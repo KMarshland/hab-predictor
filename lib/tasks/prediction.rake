@@ -15,4 +15,8 @@ namespace :prediction do
     ))
   end
 
+  task :datasets => [:environment] do
+    puts JSON.pretty_generate(Predictor.datasets)
+  end
+
 end

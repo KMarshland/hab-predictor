@@ -4,14 +4,14 @@ use std::env;
 use std::fs::DirEntry;
 use chrono::prelude::*;
 use predictor::point::*;
-use predictor::grib_reader::*;
+use predictor::dataset::*;
 
 struct UninitializedDataSetReader {
     dataset_directory: String
 }
 
 struct DataSetReader {
-    grib_readers: Vec<Box<GribReader>>
+    grib_readers: Vec<Box<Dataset>>
 }
 
 impl UninitializedDataSetReader {
@@ -20,11 +20,9 @@ impl UninitializedDataSetReader {
         Ok(DataSetReader {
             grib_readers: {
 
-                let folders = result_or_return_why!(fs::read_dir(self.dataset_directory.as_str()), "Could not read dir");
+                let mut readers : Vec<Box<Dataset>> = vec![];
 
-                // figure out which data directory to read from
-                let mut best_date = 0;
-                let mut best_dir : Option<DirEntry> = None;
+                let folders = result_or_return_why!(fs::read_dir(self.dataset_directory.as_str()), "Could not read dir");
 
                 for path in folders {
                     let dir = result_or_return_why!(path, "Could not read path");
@@ -32,113 +30,26 @@ impl UninitializedDataSetReader {
                     let file_name = dir.file_name();
                     let name = some_or_return_why!(file_name.to_str(), "Could not read filename");
 
-                    let date_num = name.parse::<i32>();
+                    println!("{}", name);
 
-                    match date_num {
-                        Ok(val) => {
-                            if val > best_date {
-                                best_date = val;
-                                best_dir = Some(dir);
-                            }
-                        }
-                        Err(_) => {
-                            // println!("Warning: junk file/folder in lib/data: {}", name)
-                        },
-                    }
                 }
 
-                if best_date == 0 {
-                    return Err(String::from("No data found"));
-                }
-
-                let mut bucket0 : Vec<DirEntry> = vec![];
-                let mut bucket6 : Vec<DirEntry> = vec![];
-                let mut bucket12 : Vec<DirEntry> = vec![];
-                let mut bucket18 : Vec<DirEntry> = vec![];
-
-                let files = result_or_return_why!(fs::read_dir(
-                    some_or_return_why!(best_dir, "Could not read dir").path()
-                ), "Could not read dir");
-
-                for path in files {
-                    let file = result_or_return_why!(path, "Could not get path");
-                    let undone_path = file.path();
-
-                    // nested matching makes me want to die. We should refactor
-                    match undone_path.extension() {
-                        Some(ext) => {
-                            match ext.to_str() {
-                                Some(extension) => {
-                                    if extension != "grb2" {
-                                        continue
-                                    }
-                                }
-                                None => {
-                                    continue
-                                }
-                            }
-                        }
-                        None => {
-                            continue
-                        }
-                    }
-
-                    let file_name = file.file_name();
-                    let name = some_or_return_why!(file_name.to_str(), "Could not read filename");
-
-                    let parts = name.split("_").collect::<Vec<&str>>();
-                    let bucket = parts[3];
-
-                    match bucket.as_ref() {
-                        "1800" => {
-                            bucket18.push(file)
-                        },
-                        "1200" => {
-                            bucket12.push(file)
-                        },
-                        "0600" => {
-                            bucket6.push(file)
-                        },
-                        _ => {
-                            bucket0.push(file)
-                        }
-                    }
-                }
-
-                let bucket : Vec<DirEntry> = {
-                    if bucket18.len() > 0 {
-                        bucket18
-                    } else if bucket12.len() > 0 {
-                        bucket12
-                    } else if bucket6.len() > 0 {
-                        bucket6
-                    } else {
-                        bucket0
-                    }
-                };
-
-                let mut readers : Vec<Box<GribReader>> = vec![];
-
-                for file in bucket {
-                    let path = file.path();
-
-                    let extension = some_or_return_why!(
-                        some_or_return_why!(path.extension(), "Could not read extenstion").to_str(),
-                        "Could not read extension"
-                    );
-
-                    if extension == "grb2" {
-                        let reader = GribReader::new(
-                            some_or_return_why!(path.to_str(), "Could not read path").to_string()
-                        );
-
-                        readers.push(Box::new(result_or_return!(reader)));
-                    }
-                }
-
-                // TODO: enforce reader sort order
-
-                // println!("Readers initialized: {}ms", Utc::now().signed_duration_since(start_time).num_milliseconds());
+//                for file in bucket {
+//                    let path = file.path();
+//
+//                    let extension = some_or_return_why!(
+//                        some_or_return_why!(path.extension(), "Could not read extenstion").to_str(),
+//                        "Could not read extension"
+//                    );
+//
+//                    if extension == "grb2" {
+//                        let reader = Dataset::new(
+//                            some_or_return_why!(path.to_str(), "Could not read path").to_string()
+//                        );
+//
+//                        readers.push(Box::new(result_or_return!(reader)));
+//                    }
+//                }
 
                 readers
             }
@@ -171,7 +82,7 @@ impl DataSetReader {
         Ok(result)
     }
 
-    fn get_reader(&mut self, point: &Point) -> Result<&mut Box<GribReader>, String> {
+    fn get_reader(&mut self, point: &Point) -> Result<&mut Box<Dataset>, String> {
         // TODO: implement a binary search tree or alternative fast lookup
 
         let readers = &mut self.grib_readers;
@@ -279,7 +190,7 @@ impl WrappedDataSetReader {
 
 lazy_static! {
     static ref READER : Mutex<WrappedDataSetReader> = Mutex::new(WrappedDataSetReader::new(
-        [env::var("RAILS_ROOT").expect("RAILS_ROOT environment variable not found"), "/lib/data".to_string()].concat()
+        [env::var("RAILS_ROOT").expect("RAILS_ROOT environment variable not found"), "/data".to_string()].concat()
     ));
 }
 
