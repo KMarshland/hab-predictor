@@ -8,18 +8,7 @@ class StartPreprocessorWorker
 
   def perform(at=DateTime.now)
 
-    # find the folder the data lives in
-    at = at.utc.beginning_of_day
-
-    while true
-      url = "https://nomads.ncdc.noaa.gov/data/gfs4/#{at.strftime('%Y%m')}/#{at.strftime('%Y%m%d')}/"
-
-      puts "Checking #{url}"
-
-      break if url_exists? url
-
-      at -= 1.day
-    end
+    at = find_dataset_date at
 
     # see which ones you've already processed
     @processed_datasets = processed_datasets(at)
@@ -33,7 +22,36 @@ class StartPreprocessorWorker
     start_preprocessors at
   end
 
+  def list_processed
+    at = find_dataset_date DateTime.now
+    processed = processed_datasets(at)
+
+    puts "Has already processed #{processed.count} items: "
+    puts processed
+
+    puts
+    puts "#{processed.count} total"
+
+  end
+
   private
+
+  def find_dataset_date(at)
+    # find the folder the data lives in
+    at = at.utc.beginning_of_day
+
+    while true
+      url = "https://nomads.ncdc.noaa.gov/data/gfs4/#{at.strftime('%Y%m')}/#{at.strftime('%Y%m%d')}/"
+
+      puts "Checking #{url}"
+
+      break if url_exists? url
+
+      at -= 1.day
+    end
+
+    at
+  end
 
   def url_exists?(url)
     sanitized_url = url.gsub('"', '').gsub("\\", '')

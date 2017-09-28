@@ -13,4 +13,8 @@ namespace :preprocessor do
     ImportWorker.new.perform(args[:url])
   end
 
+  task :processed => :environment do
+    StartPreprocessorWorker.new.list_processed
+  end
+
 end
