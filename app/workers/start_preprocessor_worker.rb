@@ -124,8 +124,7 @@ class StartPreprocessorWorker
 
     command = "heroku run:detached rake preprocessor:run[#{url}] --app=dry-brushlands-50210"
 
-    puts command
-    `#{command}`
+    puts `#{command}`
 
   end
 
