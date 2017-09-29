@@ -4,13 +4,18 @@ require 'fileutils'
 # downloads preprocessed data from Azure
 class ImportWorker
 
-  def perform(dataset_url)
+  def perform(dataset_url, overwrite: true)
     @folder_name = dataset_url.split('/').last.split('.').first
     @filename = "#{@folder_name}.zip"
     @zip_path = Rails.root.join('data', @filename)
 
     @folder_path = Rails.root.join('data', @folder_name)
     @partial_folder_path = Rails.root.join('data', "#{@folder_name}.partial")
+
+    if Dir.exist?(@folder_path) && !overwrite
+      puts "#{@folder_name} already exists"
+      return
+    end
 
     puts "Importing #{@folder_name}.zip"
 

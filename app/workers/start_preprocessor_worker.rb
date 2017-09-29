@@ -1,3 +1,4 @@
+require Rails.root.join('lib', 'storage', 'processed_datasets.rb')
 
 class StartPreprocessorWorker
 
@@ -11,7 +12,7 @@ class StartPreprocessorWorker
     at = find_dataset_date at
 
     # see which ones you've already processed
-    @processed_datasets = processed_datasets(at)
+    @processed_datasets = ProcessedDatasets.on(at)
 
     puts
     puts 'Has already processed: '
@@ -24,7 +25,7 @@ class StartPreprocessorWorker
 
   def list_processed
     at = find_dataset_date DateTime.now
-    processed = processed_datasets(at)
+    processed = ProcessedDatasets.on(at)
 
     puts "Has already processed #{processed.count} items: "
     puts processed
@@ -115,20 +116,6 @@ class StartPreprocessorWorker
     end
 
     workers.map(&:join)
-  end
-
-  def processed_datasets(on_date)
-    unless ENV['AZURE_STORAGE_ACCOUNT'].present? && ENV['AZURE_STORAGE_ACCESS_KEY'].present?
-      raise 'No Azure Storage Keys provided'
-    end
-
-    Azure::Storage.setup(storage_account_name: ENV['AZURE_STORAGE_ACCOUNT'], storage_access_key: ENV['AZURE_STORAGE_ACCESS_KEY'])
-    blobs = Azure::Storage::Blob::BlobService.new
-    blobs.with_filter(Azure::Storage::Core::Filter::ExponentialRetryPolicyFilter.new)
-
-    blobs.list_blobs('data', prefix: "gfs_4_#{on_date.strftime('%Y%m%d')}").map do |blob|
-      blob.name.split('.').first
-    end
   end
 
   def has_processed?(url)
