@@ -1,6 +1,0 @@
-.idea
-.git
-dump.rdb
-
-lib/data/*
-log/development.log
