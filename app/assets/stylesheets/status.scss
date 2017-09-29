@@ -1,3 +1,35 @@
-// Place all the styles related to the status controller here.
-// They will automatically be included in application.css.
-// You can use Sass (SCSS) here: http://sass-lang.com/
+
+body {
+  background: black;
+  padding: 6px;
+}
+
+.datasets {
+  color: white;
+
+  width: 100%;
+
+  td {
+    padding: 12px;
+    border-radius: 8px;
+    text-align: center;
+    vertical-align: top;
+
+    ul {
+      list-style-type: none;
+      padding: 0;
+    }
+  }
+}
+
+.downloaded-and-recent {
+  background: darkgreen;
+}
+
+.downloaded-and-old {
+  background: darkgoldenrod;
+}
+
+.not-downloaded {
+  background: darkred;
+}

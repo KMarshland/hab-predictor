@@ -5,5 +5,7 @@ Rails.application.routes.draw do
   get 'footprint' => 'footprint#footprint'
   get 'guidance' => 'guidance#guidance'
 
+  get 'status/datasets'
+
   root 'status#status'
 end

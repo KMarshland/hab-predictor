@@ -1,0 +1,58 @@
+
+<table class="datasets">
+  <tr>
+    <td class="downloaded-and-recent">
+
+      <h1>
+        Download & Recent
+      </h1>
+
+      <h2>
+        <%= pluralize @intersection.count, 'item' %>
+      </h2>
+
+      <ul>
+        <% @intersection.each do |dataset| %>
+            <li><%= dataset %></li>
+        <% end %>
+      </ul>
+
+    </td>
+
+    <td class="downloaded-and-old">
+
+      <h1>
+        Downloaded & Old
+      </h1>
+
+      <h2>
+        <%= pluralize @not_processed.count, 'item' %>
+      </h2>
+
+      <ul>
+        <% @not_processed.each do |dataset| %>
+            <li><%= dataset %></li>
+        <% end %>
+      </ul>
+
+    </td>
+
+    <td class="not-downloaded">
+
+      <h1>
+        Not Downloaded
+      </h1>
+
+      <h2>
+        <%= pluralize @not_downloaded.count, 'item' %>
+      </h2>
+
+      <ul>
+        <% @not_downloaded.each do |dataset| %>
+            <li><%= dataset %></li>
+        <% end %>
+      </ul>
+
+    </td>
+  </tr>
+</table>
