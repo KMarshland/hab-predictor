@@ -2,6 +2,7 @@ use std::io::prelude::*;
 use std::fs::File;
 use std::mem;
 use chrono::prelude::*;
+use chrono::Duration;
 use predictor::point::*;
 use lru_cache::LruCache;
 
@@ -35,10 +36,80 @@ enum GribReadError {
 impl Dataset {
 
     pub fn new(path: String) -> Result<Dataset, String> {
+
+        let (created_at, time) = {
+
+            let parts: Vec<&str> = some_or_return_why!(path.split("/").collect::<Vec<&str>>().last(), "Could not get name")
+                .split("_").collect();
+
+            if parts.len() != 5 {
+                return_error!(format!("Expected 5 parts in name, got {}", parts.len()));
+            }
+
+            if parts[4].contains(".") {
+                return_error!("Is not a complete dataset");
+            }
+
+            if parts[0] != "gfs" {
+                return_error!(format!("Expected first part to be gfs, got {}", parts[0]));
+            }
+
+            if parts[1] != "4" {
+                return_error!(format!("Expected second part to be 4, got {}", parts[1]));
+            }
+
+            if parts[2].len() != 8 {
+                return_error!(format!("Expected 8 characters in third part, got {}", parts[2].len()));
+            }
+
+            let year = match parts[2][0..4].parse::<i32>() {
+                Ok(val) => val,
+                Err(_) => {
+                    return_error!("Invalid year");
+                }
+            };
+
+            let month = match parts[2][4..6].parse::<u32>() {
+                Ok(val) => val,
+                Err(_) => {
+                    return_error!("Invalid month");
+                }
+            };
+
+            let day = match parts[2][6..8].parse::<u32>() {
+                Ok(val) => val,
+                Err(_) => {
+                    return_error!("Invalid day");
+                }
+            };
+
+            let hour = match parts[3] {
+                "0000" => 0,
+                "0600" => 6,
+                "1200" => 12,
+                "1800" => 18,
+                _ => {
+                    return_error!(format!("Invalid hour offset in fourth part: {}", parts[3]));
+                }
+            };
+
+            let created_at = Utc.ymd(year, month, day).and_hms(hour, 0, 0);
+
+
+            let hour_offset = match parts[4].parse::<u32>() {
+                Ok(val) => val,
+                Err(_) => {
+                    return_error!("Invalid hour offset in fifth part");
+                }
+            };
+
+            let time = created_at + Duration::hours(hour_offset as i64);
+
+            (created_at, time)
+        };
+
         Ok(Dataset {
-            path,
-            created_at: Utc::now(),
-            time: Utc::now(),
+            path, created_at, time,
             cache: LruCache::new(CACHE_SIZE)
         })
     }

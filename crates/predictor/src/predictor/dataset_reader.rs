@@ -30,7 +30,7 @@ impl UninitializedDataSetReader {
 
                     let reader = match Dataset::new(path_as_str.to_string()) {
                         Ok(reader) => reader,
-                        Err(_) => {
+                        Err(why) => {
                             continue;
                         }
                     };

@@ -93,3 +93,9 @@ macro_rules! some_or_return_why {
         }
     };
 }
+
+macro_rules! return_error {
+    ($why:expr) => {
+        return Err(String::from($why));
+    };
+}
