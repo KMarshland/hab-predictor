@@ -1,7 +1,5 @@
 class PredictionController < ApplicationController
 
-  require 'prediction/prediction'
-
   def predict
     required_params = [:lat, :lon, :altitude, :time, :profile]
 

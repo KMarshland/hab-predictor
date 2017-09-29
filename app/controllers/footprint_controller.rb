@@ -1,7 +1,5 @@
 class FootprintController < ApplicationController
 
-  require 'prediction/prediction'
-
   def footprint
     required_params = [
         :lat, :lon, :altitude, :time,

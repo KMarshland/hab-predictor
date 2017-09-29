@@ -81,5 +81,4 @@ gem 'tzinfo-data', platforms: [:mingw, :mswin, :x64_mingw, :jruby]
 
 # write extensions in rust
 gem 'helix-rails', '~> 0.5.0'
-
 gem 'predictor', path: 'crates/predictor'

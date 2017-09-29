@@ -1,5 +1,10 @@
 # Re-namespace rust predictor
-require 'predictor'
+begin
+  require 'predictor'
+rescue StandardError => e
+  puts 'Could not load rust predictor'
+  puts e
+end
 
 if defined? Predictor
   Object.const_set('RustPredictor', Predictor)

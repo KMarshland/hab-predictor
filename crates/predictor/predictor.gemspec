@@ -10,5 +10,5 @@ Gem::Specification.new do |s|
   s.platform     = Gem::Platform::RUBY
   s.require_path = 'lib'
 
-  s.add_dependency 'helix_runtime', '~> 0.6.0'
+  s.add_dependency 'helix_runtime', '~> 0.6.4'
 end

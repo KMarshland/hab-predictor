@@ -1,5 +1,6 @@
 use chrono::prelude::*;
 use chrono::Duration;
+use serde::ser::{SerializeMap};
 use std::ops::Add;
 use std::ops::Mul;
 use std::fmt;
@@ -12,7 +13,7 @@ const DATA_RESOLUTION : f32 = 0.5; // resolution in GRIB files
 /*
  * A position time tuple
  */
-#[derive(Clone, Serialize)]
+#[derive(Clone)]
 pub struct Point {
     pub latitude: f32,
     pub longitude: f32,
@@ -24,6 +25,17 @@ impl fmt::Display for Point {
     // This trait requires `fmt` with this exact signature.
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{},{} / {}m at {}", self.latitude, self.longitude, self.altitude, self.time.to_string())
+    }
+}
+
+impl ::serde::Serialize for Point {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: ::serde::Serializer {
+        let mut map = serializer.serialize_map(Some(4 as usize))?;
+        map.serialize_entry("latitude", &self.latitude)?;
+        map.serialize_entry("longitude", &self.longitude)?;
+        map.serialize_entry("altitude", &self.altitude)?;
+        map.serialize_entry("time", &format!("{:?}", &self.time))?; // potentially switch this to unix epoch?
+        map.end()
     }
 }
 

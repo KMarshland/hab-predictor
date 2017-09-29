@@ -1,7 +1,5 @@
 class GuidanceController < ApplicationController
 
-  require 'prediction/prediction'
-
   def guidance
 
     errors = []
