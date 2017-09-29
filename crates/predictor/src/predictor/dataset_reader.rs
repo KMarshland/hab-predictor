@@ -30,7 +30,7 @@ impl UninitializedDataSetReader {
 
                     let reader = match Dataset::new(path_as_str.to_string()) {
                         Ok(reader) => reader,
-                        Err(why) => {
+                        Err(_) => {
                             continue;
                         }
                     };
@@ -55,7 +55,7 @@ impl DataSetReader {
         }
     }
 
-    pub fn get_datasets(&self) -> Result<Vec<DateTime<Utc>>, String> {
+    pub fn get_datasets(&self) -> Result<Vec<String>, String> {
         let mut result = vec![];
 
         let readers = &self.grib_readers;
@@ -63,7 +63,7 @@ impl DataSetReader {
         for i in 0..readers.len() {
             let reader = &readers[i];
 
-            result.push(reader.time.clone());
+            result.push(reader.name.clone());
         }
 
         Ok(result)
@@ -135,7 +135,7 @@ impl WrappedDataSetReader {
     }
 
 
-    pub fn get_datasets(&mut self) -> Result<Vec<DateTime<Utc>>, String> {
+    pub fn get_datasets(&mut self) -> Result<Vec<String>, String> {
         get_reader_then!(self.get_datasets)
     }
 
@@ -187,7 +187,7 @@ pub fn velocity_at(point: &Point) -> Result<Velocity, String> {
     result
 }
 
-pub fn get_datasets() -> Result<Vec<DateTime<Utc>>, String> {
+pub fn get_datasets() -> Result<Vec<String>, String> {
     let result = result_or_return_why!(READER.lock(), "Could not establish lock on reader").get_datasets();
 
     result

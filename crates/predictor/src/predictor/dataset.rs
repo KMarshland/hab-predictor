@@ -16,6 +16,7 @@ pub struct Dataset {
     pub time: DateTime<Utc>,
 
     path: String,
+    pub name: String,
 
     cache: LruCache<u32, Velocity>
 }
@@ -37,10 +38,11 @@ impl Dataset {
 
     pub fn new(path: String) -> Result<Dataset, String> {
 
-        let (created_at, time) = {
+        let (name, created_at, time) = {
 
-            let parts: Vec<&str> = some_or_return_why!(path.split("/").collect::<Vec<&str>>().last(), "Could not get name")
-                .split("_").collect();
+            let name : &String = &some_or_return_why!(path.split("/").collect::<Vec<&str>>().last(), "Could not get name").to_string();
+
+            let parts: Vec<&str> = name.split("_").collect();
 
             if parts.len() != 5 {
                 return_error!(format!("Expected 5 parts in name, got {}", parts.len()));
@@ -105,11 +107,11 @@ impl Dataset {
 
             let time = created_at + Duration::hours(hour_offset as i64);
 
-            (created_at, time)
+            (name.clone(), created_at, time)
         };
 
         Ok(Dataset {
-            path, created_at, time,
+            name, path, created_at, time,
             cache: LruCache::new(CACHE_SIZE)
         })
     }
