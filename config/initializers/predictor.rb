@@ -1,6 +1,7 @@
 # Re-namespace rust predictor
 begin
   require 'predictor'
+  `mkdir -p #{Rails.root.join('data')}`
 rescue StandardError => e
   puts 'Could not load rust predictor'
   puts e
