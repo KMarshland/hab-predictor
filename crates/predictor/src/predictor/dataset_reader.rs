@@ -1,7 +1,6 @@
 use std::sync::Mutex;
 use std::fs;
 use std::env;
-use std::fs::DirEntry;
 use chrono::prelude::*;
 use predictor::point::*;
 use predictor::dataset::*;
@@ -24,32 +23,20 @@ impl UninitializedDataSetReader {
 
                 let folders = result_or_return_why!(fs::read_dir(self.dataset_directory.as_str()), "Could not read dir");
 
-                for path in folders {
-                    let dir = result_or_return_why!(path, "Could not read path");
+                for entry in folders {
+                    let path = result_or_return_why!(entry, "Could not read entry").path();
 
-                    let file_name = dir.file_name();
-                    let name = some_or_return_why!(file_name.to_str(), "Could not read filename");
+                    let path_as_str = some_or_return_why!(path.to_str(), "Could not read path");
 
-                    println!("{}", name);
+                    let reader = match Dataset::new(path_as_str.to_string()) {
+                        Ok(reader) => reader,
+                        Err(_) => {
+                            continue;
+                        }
+                    };
 
+                    readers.push(Box::new(reader));
                 }
-
-//                for file in bucket {
-//                    let path = file.path();
-//
-//                    let extension = some_or_return_why!(
-//                        some_or_return_why!(path.extension(), "Could not read extenstion").to_str(),
-//                        "Could not read extension"
-//                    );
-//
-//                    if extension == "grb2" {
-//                        let reader = Dataset::new(
-//                            some_or_return_why!(path.to_str(), "Could not read path").to_string()
-//                        );
-//
-//                        readers.push(Box::new(result_or_return!(reader)));
-//                    }
-//                }
 
                 readers
             }
