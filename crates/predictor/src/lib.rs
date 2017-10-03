@@ -113,7 +113,9 @@ ruby! {
                 altitude_variance: altitude_variance as u32,
                 altitude_increment: altitude_increment as u32,
 
-                compare_with_naive: compare_with_naive
+                compare_with_naive: compare_with_naive,
+
+                guidance_type: predictor::guidance::GuidanceType::Distance
             });
 
             check_error!(result)

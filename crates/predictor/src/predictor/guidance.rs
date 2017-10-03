@@ -24,7 +24,13 @@ pub struct GuidanceParams {
     pub altitude_variance : u32,
     pub altitude_increment : u32,
 
-    pub compare_with_naive : bool
+    pub compare_with_naive : bool,
+    pub guidance_type: GuidanceType
+}
+
+pub enum GuidanceType {
+    Distance,
+    Destination(Point)
 }
 
 #[derive(Serialize)]
@@ -48,8 +54,35 @@ impl Guidance {
 }
 
 pub fn guidance(params : GuidanceParams) -> Result<Guidance, String> {
+
+    let score : Box<Fn(&Node) -> f32> = {
+        match &params.guidance_type {
+            &GuidanceType::Destination(ref given_destination) => {
+                let destination = given_destination.clone();
+
+                let score = move |node : &Node| {
+                    -(node.location.longitude - destination.longitude).powi(2) - (node.location.latitude - destination.latitude).powi(2)
+                };
+
+                Box::new(score)
+            },
+            &GuidanceType::Distance => {
+                let score = |node : &Node| {
+                    if node.location.longitude < -140.0 {
+                        return node.location.longitude + 180.0 + 360.0
+                    }
+
+                    node.location.longitude + 180.0
+                };
+
+                Box::new(score)
+            }
+        }
+    };
+
     let mut result = {
-        result_or_return!(search(&params))
+
+        result_or_return!(search(&params, score))
     };
 
     let naive = match (&params).compare_with_naive {
@@ -115,19 +148,10 @@ struct Node {
     movement_cost: f32
 }
 
-/*
- * Basis for node traversal
- */
-//enum Link {
-//    Empty,
-//    Another(*const Node),
-//}
-
 // TODO: design a real data structure for this
 struct GenerationalPQueue {
     costs : Vec<f32>,
 
-    // TODO: use fibonacci heaps for underlying implementation
     generations : Vec<BinaryHeap<*mut Node>>
 }
 
@@ -417,7 +441,7 @@ impl GenerationalPQueue {
 /*
  * Does greedy search, starting from the start point and going for timeout seconds
  */
-fn search(params : &GuidanceParams) -> Result<Guidance, String> {
+fn search(params : &GuidanceParams, score: Box<Fn(&Node) -> f32>) -> Result<Guidance, String> {
 
     let mut free_at_end : Vec<*mut Node> = Vec::new();
     let end_time = Local::now() + Duration::seconds(params.timeout as i64);
@@ -531,18 +555,4 @@ fn search(params : &GuidanceParams) -> Result<Guidance, String> {
             Err(String::from("Best node not found (this error should never occur)"))
         }
     }
-}
-
-/*
- * Converts a node into a representation of how good it is
- * Higher is better
- */
-fn score(node : &Node) -> f32 {
-    // let it wrap around the earth
-    // TODO: let it circumnavigate multiple times
-    if node.location.longitude < -140.0 {
-        return node.location.longitude + 180.0 + 360.0
-    }
-
-    node.location.longitude + 180.0
 }

@@ -8,7 +8,7 @@ namespace :guidance do
         time: 1.hour.from_now,
 
         duration: 3.days,
-        timeout: 10,
+        timeout: 30.seconds,
         compare_with_naive: true
     )
 
