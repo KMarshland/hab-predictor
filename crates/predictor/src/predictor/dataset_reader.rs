@@ -1,7 +1,6 @@
 use std::sync::Mutex;
 use std::fs;
 use std::env;
-use chrono::prelude::*;
 use predictor::point::*;
 use predictor::dataset::*;
 
@@ -10,14 +9,14 @@ struct UninitializedDataSetReader {
 }
 
 struct DataSetReader {
-    grib_readers: Vec<Box<Dataset>>
+    datasets: Vec<Box<Dataset>>
 }
 
 impl UninitializedDataSetReader {
 
     fn initialize(&mut self) -> Result<DataSetReader, String> {
         Ok(DataSetReader {
-            grib_readers: {
+            datasets: {
 
                 let mut readers : Vec<Box<Dataset>> = vec![];
 
@@ -58,7 +57,7 @@ impl DataSetReader {
     pub fn get_datasets(&self) -> Result<Vec<String>, String> {
         let mut result = vec![];
 
-        let readers = &self.grib_readers;
+        let readers = &self.datasets;
 
         for i in 0..readers.len() {
             let reader = &readers[i];
@@ -72,28 +71,28 @@ impl DataSetReader {
     fn get_reader(&mut self, point: &Point) -> Result<&mut Box<Dataset>, String> {
         // TODO: implement a binary search tree or alternative fast lookup
 
-        let readers = &mut self.grib_readers;
+        let readers = &mut self.datasets;
 
         if readers.is_empty() {
             return Err(String::from("No grib readers"));
         }
 
         let mut best_index = 0;
-//        let mut best_seconds = {
-//            let best_reader = &readers[0];
-//            best_reader.time.signed_duration_since(point.time).num_seconds().abs()
-//        };
-//
-//        for i in 1..readers.len() {
-//            let reader = &mut readers[i];
-//
-//            let abs_seconds = reader.time.signed_duration_since(point.time).num_seconds().abs();
-//
-//            if abs_seconds < best_seconds {
-//                best_index = i;
-//                best_seconds = abs_seconds;
-//            }
-//        }
+        let mut best_seconds = {
+            let best_reader = &readers[0];
+            best_reader.time.signed_duration_since(point.time).num_seconds().abs()
+        };
+
+        for i in 1..readers.len() {
+            let reader = &mut readers[i];
+
+            let abs_seconds = reader.time.signed_duration_since(point.time).num_seconds().abs();
+
+            if abs_seconds < best_seconds {
+                best_index = i;
+                best_seconds = abs_seconds;
+            }
+        }
 
         Ok(&mut readers[best_index])
     }
