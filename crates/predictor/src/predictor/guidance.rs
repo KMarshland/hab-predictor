@@ -216,6 +216,7 @@ fn search(params : &GuidanceParams, score: Box<Fn(&Node) -> f32>) -> Result<Guid
         match best_yet {
             Some(_) => {
                 let new_score = score(&node);
+                println!("  score = {:<10}, best_score = {:<10}", &new_score, &best_score);
 
                 if new_score > best_score {
                     best_yet = Some(node_ptr);

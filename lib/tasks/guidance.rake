@@ -48,26 +48,44 @@ namespace :guidance do
     naive_distance = distance(destination, naive)
     guided_distance = distance(destination, active)
 
+    puts
     puts "Got within #{guided_distance.round}km (#{naive_distance.round}km naively)"
 
+  end
+
+  task :test_distance do
+    output = distance(
+        {
+            latitude: 60.226837,
+            longitude: -45.74872
+        },
+        {
+            latitude: 66.364224,
+            longitude: -38.1470757
+        }
+    )
+
+    puts "Calculated #{output.round}km, expected #{780}km"
   end
 
   # distance in kilometers between coordinates
   def distance(from, to, earth_radius: 6_371)
     rad_per_deg = Math::PI / 180
 
-    lat_from = from[:latitude].to_f * rad_per_deg
-    lon_from = from[:lon].to_f * rad_per_deg
-    lat_to = to[:latitude].to_f * rad_per_deg
-    lon_to = to[:lon].to_f * rad_per_deg
+    lat1 = from[:latitude].to_f * rad_per_deg
+    lon1 = from[:longitude].to_f * rad_per_deg
+    lat2 = to[:latitude].to_f * rad_per_deg
+    lon2 = to[:longitude].to_f * rad_per_deg
 
-    lat_delta = lat_to - lat_from
-    lon_delta = lon_to - lon_from
+    delta_lat = lat2 - lat1
+    delta_lon = lon2 - lon1
 
-    angle = 2 * Math.asin(Math.sqrt(Math.sin(lat_delta / 2)**2)) +
-        Math.cos(lat_from) * Math.cos(lat_to) * Math.sin(lon_delta / 2**2)
+    a = Math.sin(delta_lat/2) * Math.sin(delta_lat/2) +
+        Math.cos(lat1) * Math.cos(lat2) *
+            Math.sin(delta_lon/2) * Math.sin(delta_lon/2)
+    c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a))
 
-    angle * earth_radius
+    earth_radius*c
   end
 
 

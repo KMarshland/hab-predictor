@@ -107,6 +107,25 @@ impl Point {
     }
 
     /*
+     * Returns the distance to another point in meters
+     */
+    pub fn distance_to(&self, other : &Point) -> f32 {
+
+        let lat1 = self.latitude.to_radians();
+        let lat2 = other.latitude.to_radians();
+
+        let delta_lat = lat1 - lat2;
+        let delta_lon = (self.longitude - other.longitude).to_radians();
+
+        let a = (delta_lat/2.0).sin() * (delta_lat/2.0).sin() +
+            lat1.cos() * lat2.cos() *
+                (delta_lon/2.0).sin() * (delta_lon/2.0).sin();
+        let c = 2.0 * a.sqrt().atan2((1.0-a).sqrt());
+
+        c * EARTH_RADIUS
+    }
+
+    /*
      * Converts the point to an aligned point
      */
     pub fn align(&self) -> Alignment {
