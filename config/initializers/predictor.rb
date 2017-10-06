@@ -65,7 +65,16 @@ if defined? Predictor
         ))
       end
 
-      def guidance(lat:, lon:, altitude:, time:, timeout:, duration:, time_increment:180, altitude_variance:5, altitude_increment:500, compare_with_naive: false)
+      def guidance(lat:, lon:, altitude:, time:, timeout:, duration:, time_increment:180, altitude_variance:5, altitude_increment:500, compare_with_naive: false, guidance_type:'distance', destination_lat:nil, destination_lon:nil, destination_altitude:nil)
+
+        unless %w(distance destination).include? guidance_type
+          raise ArgumentError, "Invalid guidance type '#{guidance_type}'"
+        end
+
+        if guidance_type == 'destination'
+          raise ArgumentError, 'Destination required' if destination_lat.nil? || destination_lon.nil?
+        end
+
         parse_response(RustPredictor.guidance(
             lat.to_f,
             lon.to_f,
@@ -76,7 +85,10 @@ if defined? Predictor
             time_increment.to_f,
             altitude_variance.to_f,
             altitude_increment.to_f,
-            compare_with_naive
+            compare_with_naive,
+            guidance_type.to_s,
+            destination_lat.to_f,
+            destination_lon.to_f
         ))
       end
 

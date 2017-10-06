@@ -12,6 +12,32 @@ namespace :guidance do
         compare_with_naive: true
     )
 
+    test_output result
+
+    puts
+    puts "Got to longitude #{active['longitude']} (only #{naive['longitude']} naively) by #{time}"
+  end
+
+  task :test_greenland => [:environment] do
+    result = Predictor.guidance(
+        lat: 64.1791025,
+        lon: -51.7418292,
+        altitude: 12000,
+        time: 1.hour.from_now,
+
+        duration: 3.days,
+        timeout: 10.seconds,
+        compare_with_naive: true,
+
+        guidance_type: 'destination',
+        destination_lat: 64.199941,
+        destination_lon: -50.1479727
+    )
+
+    test_output result
+  end
+
+  def test_output(result)
     # puts JSON.pretty_generate result
     # puts "\n\n\n"
 
@@ -30,9 +56,6 @@ namespace :guidance do
     puts
     puts 'Metadata'
     puts JSON.pretty_generate result['metadata']
-
-
-    puts
-    puts "Got to longitude #{active['longitude']} (only #{naive['longitude']} naively) by #{time}"
   end
+
 end

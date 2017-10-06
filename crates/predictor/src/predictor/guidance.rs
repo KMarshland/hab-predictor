@@ -55,30 +55,7 @@ impl Guidance {
 
 pub fn guidance(params : GuidanceParams) -> Result<Guidance, String> {
 
-    let score : Box<Fn(&Node) -> f32> = {
-        match &params.guidance_type {
-            &GuidanceType::Destination(ref given_destination) => {
-                let destination = given_destination.clone();
-
-                let score = move |node : &Node| {
-                    -(node.location.longitude - destination.longitude).powi(2) - (node.location.latitude - destination.latitude).powi(2)
-                };
-
-                Box::new(score)
-            },
-            &GuidanceType::Distance => {
-                let score = |node : &Node| {
-                    if node.location.longitude < -140.0 {
-                        return node.location.longitude + 180.0 + 360.0
-                    }
-
-                    node.location.longitude + 180.0
-                };
-
-                Box::new(score)
-            }
-        }
-    };
+    let score = score_for(&params);
 
     let mut result = {
 
@@ -134,6 +111,32 @@ pub fn guidance(params : GuidanceParams) -> Result<Guidance, String> {
 
     Ok(result)
 }
+
+fn score_for(params : &GuidanceParams) -> Box<Fn(&Node) -> f32> {
+    match &params.guidance_type {
+        &GuidanceType::Destination(ref given_destination) => {
+            let destination = given_destination.clone();
+
+            let score = move |node : &Node| {
+                -(node.location.longitude - destination.longitude).powi(2) - (node.location.latitude - destination.latitude).powi(2)
+            };
+
+            Box::new(score)
+        },
+        &GuidanceType::Distance => {
+            let score = |node : &Node| {
+                if node.location.longitude < -140.0 {
+                    return node.location.longitude + 180.0 + 360.0
+                }
+
+                node.location.longitude + 180.0
+            };
+
+            Box::new(score)
+        }
+    }
+}
+
 /*
  * Struct representing a single element in the queue
  * TODO: make this generic
@@ -274,16 +277,25 @@ impl Node {
                     generation: self.generation + 1,
 
                     heuristic_cost: {
+
                         let multiplier = HEURISTIC_WEIGHT / (params.time_increment.num_seconds() as f32);
 
-                        if self.location.longitude > 0.0 && point.longitude < 0.0 {
-                            (self.location.longitude - (point.longitude + 360.0)) * multiplier
-                        } else if self.location.longitude < 0.0 && point.longitude > 0.0 {
-                            ((self.location.longitude + 360.0) - point.longitude) * multiplier
-                        } else {
-                            (self.location.longitude - point.longitude) * multiplier
-                        }
+                        let cost : f32 = match &params.guidance_type {
+                            &GuidanceType::Destination(ref destination) => {
+                                -(point.longitude - destination.longitude).powi(2) - (point.latitude - destination.latitude).powi(2)
+                            },
+                            &GuidanceType::Distance => {
+                                if self.location.longitude > 0.0 && point.longitude < 0.0 {
+                                    (self.location.longitude - (point.longitude + 360.0)) * multiplier
+                                } else if self.location.longitude < 0.0 && point.longitude > 0.0 {
+                                    ((self.location.longitude + 360.0) - point.longitude) * multiplier
+                                } else {
+                                    (self.location.longitude - point.longitude) * multiplier
+                                }
+                            }
+                        };
 
+                        cost
                     },
 
                     movement_cost: {

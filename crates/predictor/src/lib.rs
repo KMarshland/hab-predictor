@@ -94,7 +94,24 @@ ruby! {
             check_error!(result)
         }
 
-        def guidance(latitude: f64, longitude: f64, altitude: f64, time: String, timeout: f64, duration: f64, time_increment: f64, altitude_variance: f64, altitude_increment: f64, compare_with_naive: bool) -> String {
+        def guidance(latitude: f64, longitude: f64, altitude: f64, time: String, timeout: f64, duration: f64, time_increment: f64, altitude_variance: f64, altitude_increment: f64, compare_with_naive: bool, guidance_type_string: String, destination_latitude: f64, destination_longitude: f64) -> String {
+
+            let guidance_type = match guidance_type_string.as_ref() {
+                "distance" => predictor::guidance::GuidanceType::Distance,
+                "destination" => {
+                    predictor::guidance::GuidanceType::Destination(predictor::point::Point {
+                        latitude: destination_latitude as f32,
+                        longitude: destination_longitude as f32,
+                        altitude: 0.0,
+                        time: Utc::now()
+                    })
+                },
+                _ => {
+                    panic!("Invalid guidance type");
+                }
+            };
+
+
             let result = predictor::guidance::guidance(predictor::guidance::GuidanceParams {
                 launch: predictor::point::Point {
                     latitude: latitude as f32,
@@ -115,7 +132,7 @@ ruby! {
 
                 compare_with_naive: compare_with_naive,
 
-                guidance_type: predictor::guidance::GuidanceType::Distance
+                guidance_type
             });
 
             check_error!(result)
