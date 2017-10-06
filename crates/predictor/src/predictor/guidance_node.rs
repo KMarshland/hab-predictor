@@ -145,7 +145,10 @@ impl Node {
 
                         let cost : f32 = match &params.guidance_type {
                             &GuidanceType::Destination(ref destination) => {
-                                -(point.longitude - destination.longitude).powi(2) - (point.latitude - destination.latitude).powi(2)
+                                (
+                                    (point.longitude - destination.longitude).abs()
+                                        + (point.latitude - destination.latitude).abs()
+                                ) * multiplier
                             },
                             &GuidanceType::Distance => {
                                 if self.location.longitude > 0.0 && point.longitude < 0.0 {

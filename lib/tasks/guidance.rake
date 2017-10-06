@@ -30,8 +30,8 @@ namespace :guidance do
         compare_with_naive: true,
 
         guidance_type: 'destination',
-        destination_lat: 64.199941,
-        destination_lon: -50.1479727
+        destination_lat: 66.364224,
+        destination_lon: -38.1470757
     )
 
     test_output result

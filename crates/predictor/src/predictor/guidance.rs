@@ -223,6 +223,7 @@ fn search(params : &GuidanceParams, score: Box<Fn(&Node) -> f32>) -> Result<Guid
                 }
             },
             None => {
+                best_score = score(&node);
                 best_yet = Some(node)
             }
         }
