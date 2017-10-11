@@ -30,6 +30,7 @@ namespace :guidance do
         lon: -51.7418292,
         altitude: 12000,
         time: 1.hour.from_now,
+        time_increment: 30,
 
         duration: 3.days,
         timeout: 10.seconds,
@@ -56,8 +57,8 @@ namespace :guidance do
   task :test_distance do
     output = distance(
         {
-            latitude: 60.226837,
-            longitude: -45.74872
+            latitude: 64.1791025,
+            longitude: -51.741829
         },
         {
             latitude: 66.364224,
@@ -65,7 +66,7 @@ namespace :guidance do
         }
     )
 
-    puts "Calculated #{output.round}km, expected #{780}km"
+    puts "Calculated #{output.round}km, expected #{676}km"
   end
 
   # distance in kilometers between coordinates

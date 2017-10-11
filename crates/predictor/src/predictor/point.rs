@@ -7,13 +7,14 @@ use std::fmt;
 use std::f32;
 
 const INTEGRAL_DURATION : f32 = 60.0; // seconds
-const EARTH_RADIUS : f32 = 6378000.0; // in m
+const EARTH_RADIUS : f32 = 6371_000.0; // in m
 const DATA_RESOLUTION : f32 = 0.5; // resolution in GRIB files
 
 /*
  * A position time tuple
  */
 #[derive(Clone)]
+#[derive(Debug)]
 pub struct Point {
     pub latitude: f32,
     pub longitude: f32,

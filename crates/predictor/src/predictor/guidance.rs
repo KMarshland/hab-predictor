@@ -119,7 +119,7 @@ fn score_for(params : &GuidanceParams) -> Box<Fn(&Node) -> f32> {
             let destination = given_destination.clone();
 
             let score = move |node : &Node| {
-                -(node.location.longitude - destination.longitude).powi(2) - (node.location.latitude - destination.latitude).powi(2)
+                - node.location.distance_to(&destination)
             };
 
             Box::new(score)
@@ -216,7 +216,6 @@ fn search(params : &GuidanceParams, score: Box<Fn(&Node) -> f32>) -> Result<Guid
         match best_yet {
             Some(_) => {
                 let new_score = score(&node);
-                println!("  score = {:<10}, best_score = {:<10}", &new_score, &best_score);
 
                 if new_score > best_score {
                     best_yet = Some(node_ptr);
@@ -227,6 +226,10 @@ fn search(params : &GuidanceParams, score: Box<Fn(&Node) -> f32>) -> Result<Guid
                 best_score = score(&node);
                 best_yet = Some(node)
             }
+        }
+
+        if checked % 1_000 == 0 {
+            println!("{:8} nodes checked", &checked);
         }
 
         checked += 1;

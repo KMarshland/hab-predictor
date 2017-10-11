@@ -17,7 +17,7 @@ pub struct Node {
 
     pub generation : usize,
 
-    heuristic_cost: f32,
+    pub heuristic_cost: f32,
     movement_cost: f32
 }
 
@@ -121,6 +121,11 @@ impl Node {
                 continue;
             }
 
+            if altitude > 20_000.0 {
+                // don't fly too high, Icarus
+                continue;
+            }
+
             let child = unsafe {
                 let child_ptr : *mut Node = libc::malloc(mem::size_of::<Node>()) as *mut Node;
                 if child_ptr.is_null() {
@@ -132,7 +137,7 @@ impl Node {
                         time: point.time,
                         latitude: point.latitude,
                         longitude: point.longitude,
-                        altitude: altitude
+                        altitude
                     },
 
                     previous: Some(address),
@@ -145,10 +150,7 @@ impl Node {
 
                         let cost : f32 = match &params.guidance_type {
                             &GuidanceType::Destination(ref destination) => {
-                                (
-                                    (point.longitude - destination.longitude).abs()
-                                        + (point.latitude - destination.latitude).abs()
-                                ) * multiplier
+                                point.distance_to(destination) * HEURISTIC_WEIGHT
                             },
                             &GuidanceType::Distance => {
                                 if self.location.longitude > 0.0 && point.longitude < 0.0 {
