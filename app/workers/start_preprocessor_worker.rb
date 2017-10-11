@@ -127,7 +127,7 @@ class StartPreprocessorWorker
     return :skipped unless url_exists? url
     return :skipped if has_processed? url
 
-    command = "heroku run:detached rake preprocessor:run[#{url}] --app=dry-brushlands-50210"
+    command = "heroku run:detached rake preprocessor:run[#{url}] --app=hab-prediction"
 
     puts `#{command}`
 

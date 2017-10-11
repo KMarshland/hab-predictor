@@ -228,7 +228,7 @@ fn search(params : &GuidanceParams, score: Box<Fn(&Node) -> f32>) -> Result<Guid
             }
         }
 
-        if checked % 1_000 == 0 {
+        if checked % 10_000 == 0 {
             println!("{:8} nodes checked", &checked);
         }
 
