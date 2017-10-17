@@ -5,8 +5,8 @@ use libc;
 use std::collections::VecDeque;
 
 use predictor::point::*;
-use predictor::guidance::*;
 use predictor::predictor::*;
+use navigation::guidance::*;
 
 /*
  * Struct representing a single element in the queue

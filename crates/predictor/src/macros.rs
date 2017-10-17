@@ -13,6 +13,7 @@
  *      }
  * }
  */
+#[macro_export]
 macro_rules! result_or_return {
     ($variable:expr) => {
         match $variable {
@@ -34,6 +35,7 @@ macro_rules! result_or_return {
  *      node
  * }
  */
+#[macro_export]
 macro_rules! unsafe_dereference {
     ($variable:expr) => {
         unsafe {
@@ -57,6 +59,7 @@ macro_rules! unsafe_dereference {
  *      }
  * }
  */
+#[macro_export]
 macro_rules! result_or_return_why {
     ($variable:expr, $why:expr) => {
         match $variable {
@@ -83,6 +86,7 @@ macro_rules! result_or_return_why {
  *      }
  * }
  */
+#[macro_export]
 macro_rules! some_or_return_why {
     ($variable:expr, $why:expr) => {
         match $variable {
@@ -94,6 +98,7 @@ macro_rules! some_or_return_why {
     };
 }
 
+#[macro_export]
 macro_rules! return_error {
     ($why:expr) => {
         return Err(String::from($why));

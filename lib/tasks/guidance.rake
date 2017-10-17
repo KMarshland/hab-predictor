@@ -27,7 +27,7 @@ namespace :guidance do
 
     naive_distance, guided_distance = nil
 
-    (24*7).times do |hour|
+    (1).times do |hour|
 
       time = '9/23'.to_datetime + hour.hours
       puts "Running navigation for #{time}"
@@ -40,7 +40,7 @@ namespace :guidance do
           time_increment: 30,
 
           duration: 3.days,
-          timeout: 1.second,
+          timeout: 3.seconds,
           compare_with_naive: true,
 
           guidance_type: 'destination',

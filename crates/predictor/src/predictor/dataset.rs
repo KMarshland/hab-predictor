@@ -3,8 +3,9 @@ use std::fs::File;
 use std::mem;
 use chrono::prelude::*;
 use chrono::Duration;
-use predictor::point::*;
 use lru_cache::LruCache;
+
+use predictor::point::*;
 
 const CELL_SIZE : f32 = 25.0; // Make sure this matches the grid size in grib_convert.rb
 const CACHE_SIZE : usize = 50_000; // in velocity tuples

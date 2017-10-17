@@ -6,8 +6,8 @@ use serde_json;
 
 use predictor::point::*;
 use predictor::predictor::*;
-use predictor::guidance_node::*;
-use predictor::generational_pqueue::*;
+use navigation::guidance_node::*;
+use navigation::generational_pqueue::*;
 
 pub const DEFAULT_STAGNATION_COST : f32 = 0.1;
 pub const STAGNATION_MULTIPLIER : f32 = 0.01;

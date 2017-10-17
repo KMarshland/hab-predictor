@@ -18,7 +18,10 @@ extern crate libc;
 use chrono::prelude::*;
 
 #[macro_use]
+pub mod macros;
+
 pub mod predictor;
+pub mod navigation;
 
 macro_rules! check_error {
     ($result:expr) => {
@@ -97,9 +100,9 @@ ruby! {
         def guidance(latitude: f64, longitude: f64, altitude: f64, time: String, timeout: f64, duration: f64, time_increment: f64, altitude_variance: f64, altitude_increment: f64, compare_with_naive: bool, guidance_type_string: String, destination_latitude: f64, destination_longitude: f64) -> String {
 
             let guidance_type = match guidance_type_string.as_ref() {
-                "distance" => predictor::guidance::GuidanceType::Distance,
+                "distance" => navigation::guidance::GuidanceType::Distance,
                 "destination" => {
-                    predictor::guidance::GuidanceType::Destination(predictor::point::Point {
+                    navigation::guidance::GuidanceType::Destination(predictor::point::Point {
                         latitude: destination_latitude as f32,
                         longitude: destination_longitude as f32,
                         altitude: 0.0,
@@ -112,7 +115,7 @@ ruby! {
             };
 
 
-            let result = predictor::guidance::guidance(predictor::guidance::GuidanceParams {
+            let result = navigation::guidance::guidance(navigation::guidance::GuidanceParams {
                 launch: predictor::point::Point {
                     latitude: latitude as f32,
                     longitude: longitude as f32,
