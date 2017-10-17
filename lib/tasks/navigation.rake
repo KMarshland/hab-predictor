@@ -25,9 +25,10 @@ namespace :navigation do
         longitude: -38.1470757
     }
 
+    best_naive_time, best_guided_time = nil
     naive_distance, guided_distance = nil
 
-    (1).times do |hour|
+    (24*7).times do |hour|
 
       time = '9/23'.to_datetime + hour.hours
       puts "Running navigation for #{time}"
@@ -51,22 +52,27 @@ namespace :navigation do
       test_output result
 
       naive = {}
-      naive_distance = nil
+      new_naive_distance = nil
       result['naive'].each do |point|
         point.symbolize_keys!
         current_distance = distance(destination, point)
 
-        if naive_distance.nil? || current_distance < naive_distance
+        if new_naive_distance.nil? || current_distance < new_naive_distance
           naive = point
-          naive_distance = current_distance
+          new_naive_distance = current_distance
         end
+      end
 
+      if naive_distance.nil? || new_naive_distance < naive_distance
+        best_naive_time = time
+        naive_distance = new_naive_distance
       end
 
       active = (result['positions'].last || {}).symbolize_keys
       new_guided_distance = distance(destination, active)
 
       if guided_distance.nil? || new_guided_distance < guided_distance
+        best_guided_time = time
         guided_distance = new_guided_distance
       end
 
@@ -75,6 +81,8 @@ namespace :navigation do
     percent_better = (100.0*naive_distance/guided_distance - 100.0).round
     comparison = percent_better.positive? ? "~#{percent_better}% better" : "~#{-percent_better}% worse"
 
+    time_formatter = '%l%P on %m/%d'
+    puts "Best naive at #{best_naive_time.strftime(time_formatter)}; best guided time at #{best_guided_time.strftime(time_formatter)}"
     puts
     puts "Got within #{guided_distance.round}km (#{naive_distance.round}km naively; navigation #{comparison})"
 

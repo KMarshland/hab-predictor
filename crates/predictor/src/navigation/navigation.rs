@@ -11,7 +11,7 @@ use navigation::generational_pqueue::*;
 
 pub const DEFAULT_STAGNATION_COST : f32 = 0.1;
 pub const STAGNATION_MULTIPLIER : f32 = 0.01;
-pub const HEURISTIC_WEIGHT : f32 = 30.0;
+pub const HEURISTIC_WEIGHT : f32 = 1.0;
 pub const MOVEMENT_WEIGHT : f32 = 0.5;
 
 pub struct NavigationParams {
