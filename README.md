@@ -122,7 +122,7 @@ This is the core navigation endpoint. In the initial version of the API, it will
 | altitude     | float   | Launch altitude, in meters                                          |
 | time         | integer | UNIX timestamp (seconds since epoch) of the launch time             |
 | duration     | integer | Minutes after launch that it will navigate for                      |
-| timeout      | integer | Max seconds to run guidance for. Limited to 60                      |
+| timeout      | integer | Max seconds to run navigation for. Limited to 60                      |
 
 
 **Response**
@@ -183,7 +183,7 @@ This model runs four times per day, at 00, 06, 12, and 18 UTC.
 There are also plans to support the ECMWF model, as that tends to be more accurate, especially over mountains.
 However, this data is not free, and so has not yet been integrated.
 
-### Active Guidance
+### Active Navigation
 One of the core features of our novel altitude stabilization platform, ValBal, is that it’s capable of flying at whatever altitude we tell it to, and adjusting that altitude mid-flight. 
 Since there are different wind patterns at different altitudes, by strategically adjusting altitudes the balloon can optimize ground distance or even aim for a specific location. 
 For example, the balloon might fly at 13km to travel west, then ascend to 15km briefly to steer north toward its final destination.

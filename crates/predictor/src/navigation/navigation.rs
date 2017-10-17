@@ -6,7 +6,7 @@ use serde_json;
 
 use predictor::point::*;
 use predictor::predictor::*;
-use navigation::guidance_node::*;
+use navigation::navigation_node::*;
 use navigation::generational_pqueue::*;
 
 pub const DEFAULT_STAGNATION_COST : f32 = 0.1;
@@ -14,7 +14,7 @@ pub const STAGNATION_MULTIPLIER : f32 = 0.01;
 pub const HEURISTIC_WEIGHT : f32 = 30.0;
 pub const MOVEMENT_WEIGHT : f32 = 0.5;
 
-pub struct GuidanceParams {
+pub struct NavigationParams {
     pub launch : Point,
 
     pub timeout : f32, // seconds
@@ -26,35 +26,35 @@ pub struct GuidanceParams {
     pub altitude_increment : u32,
 
     pub compare_with_naive : bool,
-    pub guidance_type: GuidanceType
+    pub navigation_type: NavigationType
 }
 
-pub enum GuidanceType {
+pub enum NavigationType {
     Distance,
     Destination(Point)
 }
 
 #[derive(Serialize)]
-pub struct Guidance {
-    metadata: GuidanceMetadata,
+pub struct Navigation {
+    metadata: NavigationMetadata,
     positions: Vec<Point>,
     naive: Option<Vec<Point>>
 }
 
 #[derive(Serialize)]
-struct GuidanceMetadata {
+struct NavigationMetadata {
     nodes_checked : usize,
     generation: usize,
     max_generation_reached : usize
 }
 
-impl Guidance {
+impl Navigation {
     pub fn serialize(&self) -> String {
         serde_json::to_string(self).unwrap()
     }
 }
 
-pub fn guidance(params : GuidanceParams) -> Result<Guidance, String> {
+pub fn navigation(params : NavigationParams) -> Result<Navigation, String> {
 
     let score = score_for(&params);
 
@@ -113,9 +113,9 @@ pub fn guidance(params : GuidanceParams) -> Result<Guidance, String> {
     Ok(result)
 }
 
-fn score_for(params : &GuidanceParams) -> Box<Fn(&Node) -> f32> {
-    match &params.guidance_type {
-        &GuidanceType::Destination(ref _given_destination) => {
+fn score_for(params : &NavigationParams) -> Box<Fn(&Node) -> f32> {
+    match &params.navigation_type {
+        &NavigationType::Destination(ref _given_destination) => {
             // let destination = given_destination.clone();
 
             let score = move |node : &Node| {
@@ -124,7 +124,7 @@ fn score_for(params : &GuidanceParams) -> Box<Fn(&Node) -> f32> {
 
             Box::new(score)
         },
-        &GuidanceType::Distance => {
+        &NavigationType::Distance => {
             let score = |node : &Node| {
                 if node.location.longitude < -140.0 {
                     return node.location.longitude + 180.0 + 360.0
@@ -141,7 +141,7 @@ fn score_for(params : &GuidanceParams) -> Box<Fn(&Node) -> f32> {
 /*
  * Does greedy search, starting from the start point and going for timeout seconds
  */
-fn search(params : &GuidanceParams, score: Box<Fn(&Node) -> f32>) -> Result<Guidance, String> {
+fn search(params : &NavigationParams, score: Box<Fn(&Node) -> f32>) -> Result<Navigation, String> {
 
     let mut free_at_end : Vec<*mut Node> = Vec::new();
     let end_time = Local::now() + Duration::seconds(params.timeout as i64);
@@ -247,8 +247,8 @@ fn search(params : &GuidanceParams, score: Box<Fn(&Node) -> f32>) -> Result<Guid
                 }
             }
 
-            Ok(Guidance{
-                metadata: GuidanceMetadata {
+            Ok(Navigation{
+                metadata: NavigationMetadata {
                     generation: final_generation,
                     max_generation_reached: max_generation,
                     nodes_checked: checked

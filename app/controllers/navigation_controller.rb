@@ -1,6 +1,6 @@
-class GuidanceController < ApplicationController
+class NavigationController < ApplicationController
 
-  def guidance
+  def navigation
 
     errors = []
 

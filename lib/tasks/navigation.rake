@@ -1,7 +1,7 @@
 
-namespace :guidance do
+namespace :navigation do
   task :test => [:environment] do
-    result = Predictor.guidance(
+    result = Predictor.navigation(
         lat: 36.8491253,
         lon: -121.4342394,
         altitude: 12000,
@@ -32,7 +32,7 @@ namespace :guidance do
       time = '9/23'.to_datetime + hour.hours
       puts "Running navigation for #{time}"
 
-      result = Predictor.guidance(
+      result = Predictor.navigation(
           lat: 64.1791025,
           lon: -51.7418292,
           altitude: 12000,
@@ -43,7 +43,7 @@ namespace :guidance do
           timeout: 3.seconds,
           compare_with_naive: true,
 
-          guidance_type: 'destination',
+          navigation_type: 'destination',
           destination_lat: destination[:latitude],
           destination_lon: destination[:longitude]
       )
@@ -65,7 +65,7 @@ namespace :guidance do
     percent_better = (100.0*naive_distance/guided_distance - 100.0).round
 
     puts
-    puts "Got within #{guided_distance.round}km (#{naive_distance.round}km naively; guidance ~#{percent_better}% better)"
+    puts "Got within #{guided_distance.round}km (#{naive_distance.round}km naively; navigation ~#{percent_better}% better)"
 
   end
 
@@ -114,7 +114,7 @@ namespace :guidance do
     active = (result['positions'].last || {})
     time = active['time']
 
-    puts 'Final position for active guidance'
+    puts 'Final position for active navigation'
     puts JSON.pretty_generate active
 
     puts

@@ -1,7 +1,7 @@
 use std::collections::BinaryHeap;
 
-use navigation::guidance::*;
-use navigation::guidance_node::*;
+use navigation::navigation::*;
+use navigation::navigation_node::*;
 
 // TODO: design a real data structure for this
 pub struct GenerationalPQueue {

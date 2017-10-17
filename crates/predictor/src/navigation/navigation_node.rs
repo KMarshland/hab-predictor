@@ -6,7 +6,7 @@ use std::collections::VecDeque;
 
 use predictor::point::*;
 use predictor::predictor::*;
-use navigation::guidance::*;
+use navigation::navigation::*;
 
 /*
  * Struct representing a single element in the queue
@@ -71,7 +71,7 @@ impl Node {
     /*
      * Gets the neighbors of this node by making a prediction
      */
-    pub fn neighbors(&self, address : *mut Self, params : &GuidanceParams) -> Result<Vec<*mut Self>, String> {
+    pub fn neighbors(&self, address : *mut Self, params : &NavigationParams) -> Result<Vec<*mut Self>, String> {
         // return blank if you're at the end of the time period
         if (self.generation as i64)*params.time_increment.num_seconds() > params.duration.num_seconds() {
             return Ok(vec![]);
@@ -149,11 +149,11 @@ impl Node {
 
                         let multiplier = HEURISTIC_WEIGHT / (params.time_increment.num_seconds() as f32);
 
-                        let cost : f32 = match &params.guidance_type {
-                            &GuidanceType::Destination(ref destination) => {
+                        let cost : f32 = match &params.navigation_type {
+                            &NavigationType::Destination(ref destination) => {
                                 point.distance_to(destination) * HEURISTIC_WEIGHT
                             },
-                            &GuidanceType::Distance => {
+                            &NavigationType::Distance => {
                                 if self.location.longitude > 0.0 && point.longitude < 0.0 {
                                     (self.location.longitude - (point.longitude + 360.0)) * multiplier
                                 } else if self.location.longitude < 0.0 && point.longitude > 0.0 {

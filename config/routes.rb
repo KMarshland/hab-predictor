@@ -3,7 +3,7 @@ Rails.application.routes.draw do
 
   get 'predict' => 'prediction#predict'
   get 'footprint' => 'footprint#footprint'
-  get 'guidance' => 'guidance#guidance'
+  get 'navigation' => 'navigation#navigation'
 
   get 'status/datasets'
 
