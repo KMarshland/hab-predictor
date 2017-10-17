@@ -115,11 +115,11 @@ pub fn guidance(params : GuidanceParams) -> Result<Guidance, String> {
 
 fn score_for(params : &GuidanceParams) -> Box<Fn(&Node) -> f32> {
     match &params.guidance_type {
-        &GuidanceType::Destination(ref given_destination) => {
-            let destination = given_destination.clone();
+        &GuidanceType::Destination(ref _given_destination) => {
+            // let destination = given_destination.clone();
 
             let score = move |node : &Node| {
-                - node.location.distance_to(&destination)
+                -node.heuristic_cost
             };
 
             Box::new(score)
@@ -229,7 +229,8 @@ fn search(params : &GuidanceParams, score: Box<Fn(&Node) -> f32>) -> Result<Guid
         }
 
         if checked % 10_000 == 0 {
-            println!("{:8} nodes checked", &checked);
+            // println!("{:8} nodes checked; best score: {}", &checked, &best_score);
+            println!("{:8} nodes checked; best distance: {:.0}km", &checked, -&best_score / HEURISTIC_WEIGHT / 1000.0);
         }
 
         checked += 1;

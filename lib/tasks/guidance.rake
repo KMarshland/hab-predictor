@@ -25,32 +25,47 @@ namespace :guidance do
         longitude: -38.1470757
     }
 
-    result = Predictor.guidance(
-        lat: 64.1791025,
-        lon: -51.7418292,
-        altitude: 12000,
-        time: 1.hour.from_now,
-        time_increment: 30,
+    naive_distance, guided_distance = nil
 
-        duration: 3.days,
-        timeout: 10.seconds,
-        compare_with_naive: true,
+    (24*7).times do |hour|
 
-        guidance_type: 'destination',
-        destination_lat: destination[:latitude],
-        destination_lon: destination[:longitude]
-    )
+      time = '9/23'.to_datetime + hour.hours
+      puts "Running navigation for #{time}"
 
-    test_output result
+      result = Predictor.guidance(
+          lat: 64.1791025,
+          lon: -51.7418292,
+          altitude: 12000,
+          time: time,
+          time_increment: 30,
 
-    naive = (result['naive'].last || {}).symbolize_keys
-    active = (result['positions'].last || {}).symbolize_keys
+          duration: 3.days,
+          timeout: 1.second,
+          compare_with_naive: true,
 
-    naive_distance = distance(destination, naive)
-    guided_distance = distance(destination, active)
+          guidance_type: 'destination',
+          destination_lat: destination[:latitude],
+          destination_lon: destination[:longitude]
+      )
+
+      test_output result
+
+      naive = (result['naive'].last || {}).symbolize_keys
+      active = (result['positions'].last || {}).symbolize_keys
+
+      naive_distance = distance(destination, naive)
+      new_guided_distance = distance(destination, active)
+
+      if guided_distance.nil? || new_guided_distance < guided_distance
+        guided_distance = new_guided_distance
+      end
+
+    end
+
+    percent_better = (100.0*naive_distance/guided_distance - 100.0).round
 
     puts
-    puts "Got within #{guided_distance.round}km (#{naive_distance.round}km naively)"
+    puts "Got within #{guided_distance.round}km (#{naive_distance.round}km naively; guidance ~#{percent_better}% better)"
 
   end
 

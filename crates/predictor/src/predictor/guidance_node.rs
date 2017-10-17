@@ -1,5 +1,6 @@
 use std::cmp;
 use std::mem;
+use std::f32;
 use libc;
 use std::collections::VecDeque;
 
@@ -198,7 +199,7 @@ impl Node {
 
                 generation: 0,
 
-                heuristic_cost: 0.0,
+                heuristic_cost: f32::INFINITY,
                 movement_cost: 0.0
             };
         }
