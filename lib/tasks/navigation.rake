@@ -50,10 +50,20 @@ namespace :navigation do
 
       test_output result
 
-      naive = (result['naive'].last || {}).symbolize_keys
-      active = (result['positions'].last || {}).symbolize_keys
+      naive = {}
+      naive_distance = nil
+      result['naive'].each do |point|
+        point.symbolize_keys!
+        current_distance = distance(destination, point)
 
-      naive_distance = distance(destination, naive)
+        if naive_distance.nil? || current_distance < naive_distance
+          naive = point
+          naive_distance = current_distance
+        end
+
+      end
+
+      active = (result['positions'].last || {}).symbolize_keys
       new_guided_distance = distance(destination, active)
 
       if guided_distance.nil? || new_guided_distance < guided_distance
@@ -63,9 +73,10 @@ namespace :navigation do
     end
 
     percent_better = (100.0*naive_distance/guided_distance - 100.0).round
+    comparison = percent_better.positive? ? "~#{percent_better}% better" : "~#{-percent_better}% worse"
 
     puts
-    puts "Got within #{guided_distance.round}km (#{naive_distance.round}km naively; navigation ~#{percent_better}% better)"
+    puts "Got within #{guided_distance.round}km (#{naive_distance.round}km naively; navigation #{comparison})"
 
   end
 
