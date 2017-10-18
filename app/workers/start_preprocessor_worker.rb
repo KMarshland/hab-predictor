@@ -27,11 +27,22 @@ class StartPreprocessorWorker
     at = find_dataset_date DateTime.now
     processed = ProcessedDatasets.on(at)
 
-    puts "Has already processed #{processed.count} items: "
-    puts processed
+    at_string = at.strftime('%b %e, %Y')
 
     puts
-    puts "#{processed.count} total"
+
+    if processed.count == 0
+      puts "Has not yet processed anything for the #{at_string} dataset"
+    elsif processed.count == 1
+      puts "Has already processed #{processed.count} item for the #{at_string} dataset: "
+      puts processed
+    else
+      puts "Has already processed #{processed.count} items for the #{at_string} dataset: "
+      puts processed
+
+      puts
+      puts "#{processed.count} total"
+    end
 
   end
 
