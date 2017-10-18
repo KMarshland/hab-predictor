@@ -20,10 +20,11 @@ pub struct Dataset {
 }
 
 struct GribLine {
-    lat : f32,
-    lon : f32,
+    latitude : f32,
+    longitude : f32,
     u : f32,
-    v : f32
+    v : f32,
+    temperature: f32
 }
 
 enum GribReadError {
@@ -197,29 +198,29 @@ impl Dataset {
 
         let mut u : f32 = 0.0;
         let mut v : f32 = 0.0;
+        let mut temperature : f32 = 0.0;
 
         let mut data_found = false;
 
         loop {
             match Dataset::read_line(&mut file) {
                 Ok(line) => {
-                    if aligned.latitude == line.lat && aligned.longitude == line.lon {
+                    if aligned.latitude == line.latitude && aligned.longitude == line.longitude {
                         u = line.u;
                         v = line.v;
+                        temperature = line.temperature;
                         data_found = true;
                     }
 
-                    let temperature = 0.0;
-
                     cache.insert(
-                        AlignedPoint::cache_key(aligned.level, line.lat, line.lon),
+                        AlignedPoint::cache_key(aligned.level, line.latitude, line.longitude),
                         Atmospheroid {
                             velocity: Velocity {
                                 east: line.u,
                                 north: -line.v,
                                 vertical: 0.0
                             },
-                            temperature
+                            temperature: line.temperature
                         }
                     );
                 }
@@ -253,7 +254,7 @@ impl Dataset {
                 north: -u,
                 vertical: 0.0
             },
-            temperature: 0.0
+            temperature
         })
     }
 
@@ -266,7 +267,7 @@ impl Dataset {
 
         // TODO: add a mem transmute thing here
 
-        let mut buffer = [0; 16];
+        let mut buffer = [0; 20];
 
         match file.read(&mut buffer) {
             Ok(bytes) => {
@@ -274,7 +275,7 @@ impl Dataset {
                     return Err(GribReadError::EOF);
                 }
 
-                if bytes != 16 {
+                if bytes != 20 {
                     return Err(GribReadError::Corrupted(bytes));
                 }
             },
@@ -283,7 +284,7 @@ impl Dataset {
             }
         }
 
-        let lat = match bytes_to_f32(buffer[0..4].to_vec()) {
+        let latitude = match bytes_to_f32(buffer[0..4].to_vec()) {
             Ok(val) => {
                 val
             },
@@ -292,7 +293,7 @@ impl Dataset {
             }
         };
 
-        let lon = match bytes_to_f32(buffer[4..8].to_vec()) {
+        let longitude = match bytes_to_f32(buffer[4..8].to_vec()) {
             Ok(val) => {
                 val
             },
@@ -319,11 +320,21 @@ impl Dataset {
             }
         };
 
+        let temperature = match bytes_to_f32(buffer[16..20].to_vec()) {
+            Ok(val) => {
+                val
+            },
+            Err(why) => {
+                return Err(GribReadError::IO(why))
+            }
+        };
+
         Ok(GribLine {
-            lat: lat,
-            lon: lon,
-            u: u,
-            v: v
+            latitude,
+            longitude,
+            u,
+            v,
+            temperature
         })
     }
 }
