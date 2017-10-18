@@ -119,7 +119,7 @@ impl Point {
         let isobaric_hpa = 1013.25*(1.0 - self.altitude/44330.0).powf(5.255);
 
         //TODO: make a fast lookup structure for this
-        let levels = [2, 3, 5, 7, 10, 20, 30, 50, 70, 100, 150, 200, 250, 300, 350, 400, 450, 500, 550, 600, 650, 700, 750, 800, 850, 900, 925, 950, 975, 1000];
+        let levels = [2, 3, 5, 7, 10, 20, 30, 50, 70, 80, 100, 150, 200, 250, 300, 350, 400, 450, 500, 550, 600, 650, 700, 750, 800, 850, 900, 925, 950, 975, 1000];
         let mut best_level : i32 = 1;
         let mut best_level_diff : f32 = (isobaric_hpa - (best_level as f32)).abs();
         let mut best_level_index : usize = 0;
