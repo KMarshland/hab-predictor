@@ -10,6 +10,8 @@ class RunnerWorker
       return
     end
 
+    start_time = DateTime.now
+
     $redis.set(key, true)
     $redis.expire(key, 3.hours)
 
@@ -21,6 +23,13 @@ class RunnerWorker
     $redis.lpush('to_download', dataset_url)
 
     $redis.del(key)
+
+    end_time = DateTime.now
+
+    total_time = end_time.to_f - start_time.to_f
+
+    puts
+    puts "End to end time: #{total_time.round(2)}s"
   rescue Exception => e
     $redis.del(key)
     raise e

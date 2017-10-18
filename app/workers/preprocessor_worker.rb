@@ -20,18 +20,27 @@ class PreprocessorWorker
 
     FileUtils::mkdir_p base_dir
 
-    read_to_format(dir: base_dir, path: path)
+    LEVELS.each.with_index do |level, i|
+      level_start = Time.now
+
+      read_to_format(dir: base_dir, path: path, level: level)
+
+      seconds = Time.now - level_start
+      total_seconds = Time.now - true_start
+
+      percentage = (100.0 * (i+1)/LEVELS.count)
+      extrapolation = total_seconds / (percentage / 100.0) - total_seconds
+      percentage_string = "#{percentage.round(2)}%".ljust(6)
+
+      puts "\t Level #{level.to_s.rjust(4)} written (#{percentage_string} complete; #{seconds.round}s; ~#{extrapolation.round}s remaining)"
+    end
 
     seconds = Time.now - true_start
     puts "-> Converted #{LEVELS.length} levels (#{seconds.round(2)}s, #{(seconds / LEVELS.length.to_f).round(2)}s avg)"
     puts
   end
 
-  def read_to_format(path:, dir:)
-    return if File.exist? "#{dir}/.done" # don't reparse
-
-    # TODO: clear old files
-
+  def read_to_format(path:, dir:, level:)
     # each buffer tuple is an array [level, lat, lon, u, v]
     incomplete_buffer = {}
     complete_buffer = []
@@ -41,18 +50,18 @@ class PreprocessorWorker
     flush_buffer = -> {
       file_contents = {}
 
-      complete_buffer.each_with_index do |vel, index|
-        next if vel.nil?
-        next if vel[3].nil? || vel[4].nil?
+      complete_buffer.each_with_index do |atmo, index|
+        next if atmo.nil?
+        next if atmo[2].nil? || atmo[3].nil? || atmo[4].nil?
 
-        grid_lat = (vel[1] / CELL_SIZE).floor * CELL_SIZE
-        grid_lon = (vel[2] / CELL_SIZE).floor * CELL_SIZE
+        grid_lat = (atmo[0] / CELL_SIZE).floor * CELL_SIZE
+        grid_lon = (atmo[1] / CELL_SIZE).floor * CELL_SIZE
 
-        filename = "L#{vel[0]}/C#{grid_lat}_#{grid_lon}.gribp"
+        filename = "L#{level}/C#{grid_lat}_#{grid_lon}.gribp"
         file = (file_contents[filename] ||= '')
 
         # convert the buffer to strings
-        file << "#{[vel[1]].pack('g')}#{[vel[2]].pack('g')}#{[vel[3]].pack('g')}#{[vel[4]].pack('g')}"
+        file << "#{[atmo[0]].pack('g')}#{[atmo[1]].pack('g')}#{[atmo[2]].pack('g')}#{[atmo[3]].pack('g')}#{[atmo[4]].pack('g')}"
 
         # don't rewrite the same data
         complete_buffer[index] = nil
@@ -71,55 +80,59 @@ class PreprocessorWorker
       end
 
       complete_buffer = []
-      puts "\t #{written} tuples written (~#{(100.0*written/APPROX_TUPLE_COUNT.to_f).round(2)}%)" if written > 0
     }
 
     # start parsing (cost: ~20s)
-    command = "grib_get_data -p shortName,level -w shortName=u/v,level!=0 #{path}"
+
+    command = "grib_get_data -p shortName -w shortName=u/v/t,level=#{level} #{path}"
 
     IO.popen(command) do |io|
       io.gets # skip first line
 
       # interpret (cost: ~120s)
       while (line = io.gets) do
-        lat, lon, value, label, level = line.split ' '
+        lat, lon, value, label = line.split ' '
         next if lat == '' || lon == '' || value == ''
 
         lat = lat.to_f
         lon = lon.to_f
 
-        key = :"#{level}_#{lat}_#{lon}"
+        key = :"#{lat}_#{lon}"
         buffer = incomplete_buffer[key]
 
         # weird if structure but microoptimizations actually matter here
 
         if buffer
           if label == 'u'
+            buffer[2] = value.to_f
+          elsif label == 'v'
             buffer[3] = value.to_f
           else
             buffer[4] = value.to_f
           end
 
-          complete_buffer << incomplete_buffer.delete(key)
+          # order is because grib reads in order t, u, v, so this will short circuit the fastest
+          complete_buffer << incomplete_buffer.delete(key) unless buffer[3].nil? || buffer[2].nil? || buffer[4].nil?
         else
           is_u = label == 'u'
+          is_v = !is_u && label == 'v'
+          is_t = !is_u && !is_v
+
           incomplete_buffer[key] = [
-              level,
               lat,
               lon,
               is_u ? value.to_f : nil,
-              is_u ? nil : value.to_f,
+              is_v ? value.to_f : nil,
+              is_t ? value.to_f : nil
           ]
         end
 
         flush_buffer[] if complete_buffer.size >= MEMORY_BUFFER_SIZE
-      end
 
+      end
     end
 
     flush_buffer[]
-
-    FileUtils::touch "#{dir}/.done"
   end
 
 end

@@ -14,7 +14,7 @@ module ProcessedDatasets
 
       prefix = 'gfs'
       if on_date.present?
-        "gfs_4_#{on_date.strftime('%Y%m%d')}"
+        prefix = "gfs_4_#{on_date.strftime('%Y%m%d')}"
       end
 
       blobs.list_blobs('data', prefix: prefix).map do |blob|

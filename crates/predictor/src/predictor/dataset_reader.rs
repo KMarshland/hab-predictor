@@ -1,14 +1,24 @@
 use std::sync::Mutex;
 use std::fs;
 use std::env;
+
+use lru_cache::LruCache;
+
 use predictor::point::*;
 use predictor::dataset::*;
+
+const CACHE_SIZE : usize = 50_000_000; // in bytes
+const BYTES_PER_CACHE_ELEMENT : usize = 16; // 4 floats
 
 struct UninitializedDataSetReader {
     dataset_directory: String
 }
 
+pub type Cache = LruCache<u32, Atmospheroid>;
+
 struct DataSetReader {
+    cache: Cache,
+
     datasets: Vec<Box<Dataset>>
 }
 
@@ -16,19 +26,26 @@ impl UninitializedDataSetReader {
 
     fn initialize(&mut self) -> Result<DataSetReader, String> {
         Ok(DataSetReader {
+            cache: LruCache::new(CACHE_SIZE / BYTES_PER_CACHE_ELEMENT),
+
             datasets: {
 
                 let mut readers : Vec<Box<Dataset>> = vec![];
 
                 let folders = result_or_return_why!(fs::read_dir(self.dataset_directory.as_str()), "Could not read dir");
 
+                let mut id : u32 = 1;
+
                 for entry in folders {
                     let path = result_or_return_why!(entry, "Could not read entry").path();
 
                     let path_as_str = some_or_return_why!(path.to_str(), "Could not read path");
 
-                    let reader = match Dataset::new(path_as_str.to_string()) {
-                        Ok(reader) => reader,
+                    let reader = match Dataset::new(path_as_str.to_string(), id) {
+                        Ok(reader) => {
+                            id += 1;
+                            reader
+                        },
                         Err(_) => {
                             continue;
                         }
@@ -46,12 +63,44 @@ impl UninitializedDataSetReader {
 impl DataSetReader {
 
     pub fn velocity_at(&mut self, point: &Point) -> Result<Velocity, String> {
-        match self.get_reader(point) {
-            Ok(reader) => {
-                reader.velocity_at(point)
-            },
-            Err(why) => Err(why)
+        let atmospheroid = self.atmospheroid_at(point)?;
+
+        Ok(atmospheroid.velocity)
+    }
+
+    pub fn temperature_at(&mut self, point: &Point) -> Result<Temperature, String> {
+        let atmospheroid = self.atmospheroid_at(point)?;
+
+        Ok(atmospheroid.temperature)
+    }
+
+    pub fn atmospheroid_at(&mut self, point: &Point) -> Result<Atmospheroid, String> {
+        let readers = &self.datasets;
+
+        if readers.is_empty() {
+            return Err(String::from("No grib readers"));
         }
+
+        let mut best_index = 0;
+        let mut best_seconds = {
+            let best_reader = &readers[0];
+            best_reader.time.signed_duration_since(point.time).num_seconds().abs()
+        };
+
+        for i in 1..readers.len() {
+            let reader = &readers[i];
+
+            let abs_seconds = reader.time.signed_duration_since(point.time).num_seconds().abs();
+
+            if abs_seconds < best_seconds {
+                best_index = i;
+                best_seconds = abs_seconds;
+            }
+        }
+
+        let reader = &readers[best_index];
+
+        reader.atmospheroid_at(point, &mut self.cache)
     }
 
     pub fn get_datasets(&self) -> Result<Vec<String>, String> {
@@ -66,35 +115,6 @@ impl DataSetReader {
         }
 
         Ok(result)
-    }
-
-    fn get_reader(&mut self, point: &Point) -> Result<&mut Box<Dataset>, String> {
-        // TODO: implement a binary search tree or alternative fast lookup
-
-        let readers = &mut self.datasets;
-
-        if readers.is_empty() {
-            return Err(String::from("No grib readers"));
-        }
-
-        let mut best_index = 0;
-        let mut best_seconds = {
-            let best_reader = &readers[0];
-            best_reader.time.signed_duration_since(point.time).num_seconds().abs()
-        };
-
-        for i in 1..readers.len() {
-            let reader = &mut readers[i];
-
-            let abs_seconds = reader.time.signed_duration_since(point.time).num_seconds().abs();
-
-            if abs_seconds < best_seconds {
-                best_index = i;
-                best_seconds = abs_seconds;
-            }
-        }
-
-        Ok(&mut readers[best_index])
     }
 }
 
@@ -133,6 +153,9 @@ impl WrappedDataSetReader {
         get_reader_then!(self.velocity_at point)
     }
 
+    pub fn temperature_at(&mut self, point: &Point) -> Result<Temperature, String> {
+        get_reader_then!(self.temperature_at point)
+    }
 
     pub fn get_datasets(&mut self) -> Result<Vec<String>, String> {
         get_reader_then!(self.get_datasets)
@@ -160,7 +183,7 @@ impl WrappedDataSetReader {
 
     pub fn new(dataset_directory : String) -> Self {
         WrappedDataSetReader {
-            dataset_directory: dataset_directory,
+            dataset_directory,
             reader: None
         }
     }
@@ -186,8 +209,10 @@ pub fn velocity_at(point: &Point) -> Result<Velocity, String> {
     result
 }
 
-pub fn temperature_at(point: &Point) -> Result<f32, String> {
-    Ok(0.0)
+pub fn temperature_at(point: &Point) -> Result<Temperature, String> {
+    let result = result_or_return_why!(READER.lock(), "Could not establish lock on reader").temperature_at(&point);
+
+    result
 }
 
 pub fn get_datasets() -> Result<Vec<String>, String> {

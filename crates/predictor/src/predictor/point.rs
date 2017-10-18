@@ -10,6 +10,8 @@ const INTEGRAL_DURATION : f32 = 60.0; // seconds
 const EARTH_RADIUS : f32 = 6371_000.0; // in m
 const DATA_RESOLUTION : f32 = 0.5; // resolution in GRIB files
 
+pub type Temperature = f32;
+
 /*
  * A position time tuple
  */
@@ -81,31 +83,15 @@ pub struct Velocity {
 }
 
 /*
- * A position time tuple, plus velocity
+ * Represents atmospheric condition at a given point
  */
-pub struct Ephemeris {
-    pub latitude: f32,
-    pub longitude: f32,
-    pub altitude: f32,
-    pub time: DateTime<Utc>,
-
+#[derive(Clone)]
+pub struct Atmospheroid {
+    pub temperature : Temperature,
     pub velocity: Velocity
 }
 
 impl Point {
-    /*
-     * Create an ephemeris for a point
-     */
-    pub fn with_velocity(&self, velocity: Velocity) -> Ephemeris {
-        Ephemeris {
-            latitude: self.latitude,
-            longitude: self.longitude,
-            altitude: self.altitude,
-            time: self.time,
-
-            velocity: velocity
-        }
-    }
 
     /*
      * Returns the distance to another point in meters
@@ -133,7 +119,7 @@ impl Point {
         let isobaric_hpa = 1013.25*(1.0 - self.altitude/44330.0).powf(5.255);
 
         //TODO: make a fast lookup structure for this
-        let levels = [2, 3, 5, 7, 10, 20, 30, 50, 70, 100, 150, 200, 250, 300, 350, 400, 450, 500, 550, 600, 650, 700, 750, 800, 850, 900, 925, 950, 975, 1000];
+        let levels = [2, 3, 5, 7, 10, 20, 30, 50, 70, 80, 100, 150, 200, 250, 300, 350, 400, 450, 500, 550, 600, 650, 700, 750, 800, 850, 900, 925, 950, 975, 1000];
         let mut best_level : i32 = 1;
         let mut best_level_diff : f32 = (isobaric_hpa - (best_level as f32)).abs();
         let mut best_level_index : usize = 0;
@@ -294,24 +280,67 @@ impl<'a> Add<&'a Velocity> for Point {
 
 impl AlignedPoint {
 
-    pub fn key(&self) -> u32 {
-        AlignedPoint::cache_key(self.level, self.latitude, self.longitude)
+    pub fn key(&self, dataset_id : u32) -> u32 {
+        AlignedPoint::cache_key(self.level, self.latitude, self.longitude, dataset_id)
     }
 
     /*
      * Hashes the point to a u32
      */
-    pub fn cache_key(level : i32, latitude : f32, longitude: f32) -> u32 {
+    pub fn cache_key(level : i32, latitude : f32, longitude: f32, dataset_id : u32) -> u32 {
         // give 10 bits each to each part of the key
         // each of these parts is converted to a u32
         // WARNING: if any has a value greater than 1023 this will have cache collisions
 
-        AlignedPoint::mask(level as f32) +
-            (AlignedPoint::mask((latitude + 90.0)/DATA_RESOLUTION) << 10) +
-            (AlignedPoint::mask(longitude/DATA_RESOLUTION) << 20)
+        let level_index : u32 = match level {
+            2 => 0,
+            3 => 1,
+            5 => 2,
+            7 => 3,
+            10 => 4,
+            20 => 5,
+            30 => 6,
+            50 => 7,
+            70 => 8,
+            80 => 9,
+            100 => 10,
+            150 => 11,
+            200 => 12,
+            250 => 13,
+            300 => 14,
+            350 => 15,
+            400 => 16,
+            450 => 17,
+            500 => 18,
+            550 => 19,
+            600 => 20,
+            650 => 21,
+            700 => 22,
+            750 => 23,
+            800 => 24,
+            850 => 25,
+            900 => 26,
+            925 => 27,
+            950 => 28,
+            975 => 29,
+            1000 => 30,
+            _ => {
+                panic!(format!("Unknown level for an aligned point: {}", level))
+            }
+        };
+
+        AlignedPoint::mask5(level_index) +
+            AlignedPoint::mask5(dataset_id) << 5 +
+            (AlignedPoint::mask10((latitude + 90.0)/DATA_RESOLUTION) << 10) +
+            (AlignedPoint::mask10(longitude/DATA_RESOLUTION) << 20)
     }
 
-    pub fn mask(num : f32) -> u32 {
+    fn mask5(num : u32) -> u32 {
+        let mask : u32 = 0b11111;
+        num & mask
+    }
+
+    fn mask10(num : f32) -> u32 {
         let mask : u32 = 0b1111111111;
         (num.trunc() as u32) & mask
     }
@@ -337,6 +366,31 @@ impl Mul<f32> for Velocity {
             north: self.north * factor,
             east: self.east * factor,
             vertical: self.vertical * factor
+        }
+    }
+}
+
+impl<'a> Add<&'a Atmospheroid> for Atmospheroid {
+    type Output = Atmospheroid;
+
+    fn add(self, other: &'a Atmospheroid) -> Atmospheroid {
+        Atmospheroid {
+            temperature: self.temperature + other.temperature,
+            velocity: self.velocity + &other.velocity
+        }
+    }
+}
+
+/*
+ * Piecewise multiplication, so that it can be scaled for interpolation
+ */
+impl Mul<f32> for Atmospheroid {
+    type Output = Atmospheroid;
+
+    fn mul(self, factor: f32) -> Atmospheroid {
+        Atmospheroid {
+            velocity: self.velocity * factor,
+            temperature: self.temperature * factor
         }
     }
 }
