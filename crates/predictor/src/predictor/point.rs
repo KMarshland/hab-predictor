@@ -10,6 +10,8 @@ const INTEGRAL_DURATION : f32 = 60.0; // seconds
 const EARTH_RADIUS : f32 = 6371_000.0; // in m
 const DATA_RESOLUTION : f32 = 0.5; // resolution in GRIB files
 
+pub type Temperature = f32;
+
 /*
  * A position time tuple
  */
@@ -81,31 +83,15 @@ pub struct Velocity {
 }
 
 /*
- * A position time tuple, plus velocity
+ * Represents atmospheric condition at a given point
  */
-pub struct Ephemeris {
-    pub latitude: f32,
-    pub longitude: f32,
-    pub altitude: f32,
-    pub time: DateTime<Utc>,
-
+#[derive(Clone)]
+pub struct Atmospheroid {
+    pub temperature : Temperature,
     pub velocity: Velocity
 }
 
 impl Point {
-    /*
-     * Create an ephemeris for a point
-     */
-    pub fn with_velocity(&self, velocity: Velocity) -> Ephemeris {
-        Ephemeris {
-            latitude: self.latitude,
-            longitude: self.longitude,
-            altitude: self.altitude,
-            time: self.time,
-
-            velocity: velocity
-        }
-    }
 
     /*
      * Returns the distance to another point in meters
@@ -333,6 +319,31 @@ impl Mul<f32> for Velocity {
             north: self.north * factor,
             east: self.east * factor,
             vertical: self.vertical * factor
+        }
+    }
+}
+
+impl<'a> Add<&'a Atmospheroid> for Atmospheroid {
+    type Output = Atmospheroid;
+
+    fn add(self, other: &'a Atmospheroid) -> Atmospheroid {
+        Atmospheroid {
+            temperature: self.temperature + other.temperature,
+            velocity: self.velocity + &other.velocity
+        }
+    }
+}
+
+/*
+ * Piecewise multiplication, so that it can be scaled for interpolation
+ */
+impl Mul<f32> for Atmospheroid {
+    type Output = Atmospheroid;
+
+    fn mul(self, factor: f32) -> Atmospheroid {
+        Atmospheroid {
+            velocity: self.velocity * factor,
+            temperature: self.temperature * factor
         }
     }
 }

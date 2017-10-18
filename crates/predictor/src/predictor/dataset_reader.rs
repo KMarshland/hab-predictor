@@ -1,14 +1,24 @@
 use std::sync::Mutex;
 use std::fs;
 use std::env;
+
+use lru_cache::LruCache;
+
 use predictor::point::*;
 use predictor::dataset::*;
+
+const CACHE_SIZE : usize = 50_000_000; // in bytes
+const BYTES_PER_CACHE_ELEMENT : usize = 16; // 4 floats
 
 struct UninitializedDataSetReader {
     dataset_directory: String
 }
 
+pub type Cache = LruCache<u32, Atmospheroid>;
+
 struct DataSetReader {
+    cache: Cache,
+
     datasets: Vec<Box<Dataset>>
 }
 
@@ -16,6 +26,8 @@ impl UninitializedDataSetReader {
 
     fn initialize(&mut self) -> Result<DataSetReader, String> {
         Ok(DataSetReader {
+            cache: LruCache::new(CACHE_SIZE / BYTES_PER_CACHE_ELEMENT),
+
             datasets: {
 
                 let mut readers : Vec<Box<Dataset>> = vec![];
@@ -46,12 +58,38 @@ impl UninitializedDataSetReader {
 impl DataSetReader {
 
     pub fn velocity_at(&mut self, point: &Point) -> Result<Velocity, String> {
-        match self.get_reader(point) {
-            Ok(reader) => {
-                reader.velocity_at(point)
-            },
-            Err(why) => Err(why)
+        let atmospheroid = self.atmospheroid_at(point)?;
+
+        Ok(atmospheroid.velocity)
+    }
+
+    pub fn atmospheroid_at(&mut self, point: &Point) -> Result<Atmospheroid, String> {
+        let readers = &self.datasets;
+
+        if readers.is_empty() {
+            return Err(String::from("No grib readers"));
         }
+
+        let mut best_index = 0;
+        let mut best_seconds = {
+            let best_reader = &readers[0];
+            best_reader.time.signed_duration_since(point.time).num_seconds().abs()
+        };
+
+        for i in 1..readers.len() {
+            let reader = &readers[i];
+
+            let abs_seconds = reader.time.signed_duration_since(point.time).num_seconds().abs();
+
+            if abs_seconds < best_seconds {
+                best_index = i;
+                best_seconds = abs_seconds;
+            }
+        }
+
+        let reader = &readers[best_index];
+
+        reader.atmospheroid_at(point, &mut self.cache)
     }
 
     pub fn get_datasets(&self) -> Result<Vec<String>, String> {
@@ -66,35 +104,6 @@ impl DataSetReader {
         }
 
         Ok(result)
-    }
-
-    fn get_reader(&mut self, point: &Point) -> Result<&mut Box<Dataset>, String> {
-        // TODO: implement a binary search tree or alternative fast lookup
-
-        let readers = &mut self.datasets;
-
-        if readers.is_empty() {
-            return Err(String::from("No grib readers"));
-        }
-
-        let mut best_index = 0;
-        let mut best_seconds = {
-            let best_reader = &readers[0];
-            best_reader.time.signed_duration_since(point.time).num_seconds().abs()
-        };
-
-        for i in 1..readers.len() {
-            let reader = &mut readers[i];
-
-            let abs_seconds = reader.time.signed_duration_since(point.time).num_seconds().abs();
-
-            if abs_seconds < best_seconds {
-                best_index = i;
-                best_seconds = abs_seconds;
-            }
-        }
-
-        Ok(&mut readers[best_index])
     }
 }
 
@@ -160,7 +169,7 @@ impl WrappedDataSetReader {
 
     pub fn new(dataset_directory : String) -> Self {
         WrappedDataSetReader {
-            dataset_directory: dataset_directory,
+            dataset_directory,
             reader: None
         }
     }

@@ -1,25 +1,22 @@
 use std::io::prelude::*;
 use std::fs::File;
 use std::mem;
+
 use chrono::prelude::*;
 use chrono::Duration;
-use lru_cache::LruCache;
 
 use predictor::point::*;
+use predictor::dataset_reader::*;
 
 const CELL_SIZE : f32 = 25.0; // Make sure this matches the grid size in grib_convert.rb
-const CACHE_SIZE : usize = 50_000; // in velocity tuples
 
 
-#[allow(dead_code)]
 pub struct Dataset {
     pub created_at: DateTime<Utc>,
     pub time: DateTime<Utc>,
 
     path: String,
-    pub name: String,
-
-    cache: LruCache<u32, Velocity>
+    pub name: String
 }
 
 struct GribLine {
@@ -112,26 +109,25 @@ impl Dataset {
         };
 
         Ok(Dataset {
-            name, path, created_at, time,
-            cache: LruCache::new(CACHE_SIZE)
+            name, path, created_at, time
         })
     }
 
     /*
-     * Returns the interpolated velocity at a given point
+     * Returns the interpolated atmospheroid at a given point
      */
-    pub fn velocity_at(&mut self, point: &Point) -> Result<Velocity, String> {
+    pub fn atmospheroid_at(&self, point: &Point, cache: &mut Cache) -> Result<Atmospheroid, String> {
 
         // get the eight points to interpolate between
         let aligned = point.align();
-        let ne_down = result_or_return!(self.velocity_at_aligned(&aligned.ne_down));
-        let ne_up = result_or_return!(self.velocity_at_aligned(&aligned.ne_up));
-        let nw_down = result_or_return!(self.velocity_at_aligned(&aligned.nw_down));
-        let nw_up = result_or_return!(self.velocity_at_aligned(&aligned.nw_up));
-        let se_down = result_or_return!(self.velocity_at_aligned(&aligned.se_down));
-        let se_up = result_or_return!(self.velocity_at_aligned(&aligned.se_up));
-        let sw_down = result_or_return!(self.velocity_at_aligned(&aligned.sw_down));
-        let sw_up = result_or_return!(self.velocity_at_aligned(&aligned.sw_up));
+        let ne_down = result_or_return!(self.atmospheroid_at_aligned(&aligned.ne_down, cache));
+        let ne_up = result_or_return!(self.atmospheroid_at_aligned(&aligned.ne_up, cache));
+        let nw_down = result_or_return!(self.atmospheroid_at_aligned(&aligned.nw_down, cache));
+        let nw_up = result_or_return!(self.atmospheroid_at_aligned(&aligned.nw_up, cache));
+        let se_down = result_or_return!(self.atmospheroid_at_aligned(&aligned.se_down, cache));
+        let se_up = result_or_return!(self.atmospheroid_at_aligned(&aligned.se_up, cache));
+        let sw_down = result_or_return!(self.atmospheroid_at_aligned(&aligned.sw_down, cache));
+        let sw_up = result_or_return!(self.atmospheroid_at_aligned(&aligned.sw_up, cache));
 
         // lerp lerp lerp
         Ok(
@@ -164,16 +160,14 @@ impl Dataset {
     }
 
     /*
-     * Returns the uninterpolated velocity at an aligned point
+     * Returns the uninterpolated atmospheroid at an aligned point
      */
-    fn velocity_at_aligned(&mut self, aligned: &AlignedPoint) -> Result<Velocity, String> {
+    fn atmospheroid_at_aligned(&self, aligned: &AlignedPoint, cache: &mut Cache) -> Result<Atmospheroid, String> {
         // check cache
         {
-            let ref mut cache = self.cache;
-
             match cache.get_mut(&aligned.key()) {
-                Some(vel) => {
-                    return Ok(vel.clone())
+                Some(atmo) => {
+                    return Ok(atmo.clone())
                 },
                 None => {}
             }
@@ -190,14 +184,14 @@ impl Dataset {
                 ".gribp"
         };
 
-        self.scan_file(proper_filename, aligned)
+        self.scan_file(proper_filename, aligned, cache)
     }
 
     /*
      * Looks for a point in the file, adding everything in it to the cache
      * Note that u is east and v is south, as per https://en.wikipedia.org/wiki/Zonal_and_meridional
      */
-    fn scan_file(&mut self, filename : String, aligned : &AlignedPoint) -> Result<Velocity, String> {
+    fn scan_file(&self, filename : String, aligned : &AlignedPoint, cache: &mut Cache) -> Result<Atmospheroid, String> {
         let name = &filename;
         let mut file = &mut result_or_return_why!(File::open(name), "Could not open file");
 
@@ -215,12 +209,17 @@ impl Dataset {
                         data_found = true;
                     }
 
-                    self.cache.insert(
+                    let temperature = 0.0;
+
+                    cache.insert(
                         AlignedPoint::cache_key(aligned.level, line.lat, line.lon),
-                        Velocity {
-                            east: line.u,
-                            north: -line.v,
-                            vertical: 0.0
+                        Atmospheroid {
+                            velocity: Velocity {
+                                east: line.u,
+                                north: -line.v,
+                                vertical: 0.0
+                            },
+                            temperature
                         }
                     );
                 }
@@ -248,10 +247,13 @@ impl Dataset {
             return Err(String::from("Datapoint not found"));
         }
 
-        Ok(Velocity {
-            east: v,
-            north: -u,
-            vertical: 0.0
+        Ok(Atmospheroid {
+            velocity: Velocity {
+                east: v,
+                north: -u,
+                vertical: 0.0
+            },
+            temperature: 0.0
         })
     }
 
