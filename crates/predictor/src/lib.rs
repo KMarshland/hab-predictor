@@ -55,6 +55,7 @@ ruby! {
                 profile: {
                     match profile.as_ref() {
                         "standard" => predictor::predictor::PredictionProfile::Standard,
+                        "float" => predictor::predictor::PredictionProfile::Float,
                         "valbal" => predictor::predictor::PredictionProfile::ValBal,
                         _ => predictor::predictor::PredictionProfile::Standard
                     }

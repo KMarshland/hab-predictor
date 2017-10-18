@@ -15,7 +15,7 @@ This is where you may make a prediction.
 | lon       | float   | Launch longitude                                               |
 | altitude  | float   | Launch altitude, in meters                                     |
 | time      | integer | UNIX timestamp (seconds since epoch) of the launch time        |
-| profile   | string  | Which prediction profile to run. May be "standard" or "valbal" |
+| profile   | string  | Which prediction profile to run. May be "standard", "float" or "valbal" |
 
 **Standard Profile Parameters**
 Note: these parameters are required when profile is "standard"
@@ -26,7 +26,7 @@ Note: these parameters are required when profile is "standard"
 | ascent_rate    | float | Rate at which balloon ascends, in meters per second |
 | descent_rate   | float | Rate at which balloon falls, in meters per second   |
 
-**ValBal Parameters**
+**Float & ValBal Parameters**
 Note: these parameters are required when profile is "valbal"
 
 | Parameter    | Type  | Description                                         |

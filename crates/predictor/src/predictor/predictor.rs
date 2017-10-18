@@ -5,6 +5,7 @@ use serde_json;
 
 pub enum PredictionProfile {
     Standard,
+    Float,
     ValBal
 }
 
@@ -38,9 +39,9 @@ struct StandardPredictorParams {
 }
 
 /*
- * Only those parameters necessary to run a ValBal prediction
+ * Only those parameters necessary to run a float/valbal prediction
  */
-struct ValBalPredictorParams {
+struct FloatPredictionParams {
     launch: Point,
 
     // valbal
@@ -52,7 +53,8 @@ struct ValBalPredictorParams {
  */
 pub enum Prediction {
     Standard(StandardPrediction),
-    ValBal(ValBalPrediction)
+    Float(FloatPrediction),
+    ValBal(FloatPrediction)
 }
 
 #[derive(Serialize)]
@@ -63,7 +65,7 @@ pub struct StandardPrediction {
 }
 
 #[derive(Serialize)]
-pub struct ValBalPrediction {
+pub struct FloatPrediction {
     pub positions: Vec<Point>
 }
 
@@ -73,7 +75,7 @@ impl Prediction {
             Prediction::Standard(ref p) => {
                 serde_json::to_string(p).unwrap()
             },
-            Prediction::ValBal(ref p) => {
+            Prediction::Float(ref p) | Prediction::ValBal(ref p) => {
                 serde_json::to_string(p).unwrap()
             }
         }
@@ -96,8 +98,16 @@ pub fn predict(params : PredictorParams) -> Result<Prediction, String> {
             })
         },
 
+        PredictionProfile::Float => {
+            float_predict(FloatPredictionParams {
+                launch: params.launch,
+
+                duration: params.duration
+            })
+        },
+
         PredictionProfile::ValBal => {
-            valbal_predict(ValBalPredictorParams {
+            valbal_predict(FloatPredictionParams {
                 launch: params.launch,
 
                 duration: params.duration
@@ -149,13 +159,11 @@ fn standard_predict(params : StandardPredictorParams) -> Result<Prediction, Stri
     }
 
     Ok(Prediction::Standard(StandardPrediction {
-        ascent: ascent,
-        burst: burst,
-        descent: descent
+        ascent, burst, descent
     }))
 }
 
-fn valbal_predict(params : ValBalPredictorParams) -> Result<Prediction, String> {
+fn float_predict(params : FloatPredictionParams) -> Result<Prediction, String> {
     let mut current : Point = params.launch;
     let mut positions : Vec<Point> = vec![];
 
@@ -169,8 +177,27 @@ fn valbal_predict(params : ValBalPredictorParams) -> Result<Prediction, String> 
         positions.push(current.clone());
     }
 
-    Ok(Prediction::ValBal(ValBalPrediction {
-        positions: positions
+    Ok(Prediction::ValBal(FloatPrediction {
+        positions
+    }))
+}
+
+fn valbal_predict(params : FloatPredictionParams) -> Result<Prediction, String> {
+    let mut current : Point = params.launch;
+    let mut positions : Vec<Point> = vec![];
+
+    let launch_time = current.clone().time;
+    let end_time = launch_time + params.duration;
+
+    while current.time < end_time {
+        let velocity = result_or_return!(velocity_at(&current));
+
+        current = current + &velocity;
+        positions.push(current.clone());
+    }
+
+    Ok(Prediction::ValBal(FloatPrediction {
+        positions
     }))
 }
 
