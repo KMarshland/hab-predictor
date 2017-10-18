@@ -15,6 +15,7 @@ pub struct Dataset {
     pub created_at: DateTime<Utc>,
     pub time: DateTime<Utc>,
 
+    id: u32,
     path: String,
     pub name: String
 }
@@ -35,7 +36,7 @@ enum GribReadError {
 
 impl Dataset {
 
-    pub fn new(path: String) -> Result<Dataset, String> {
+    pub fn new(path: String, id: u32) -> Result<Dataset, String> {
 
         let (name, created_at, time) = {
 
@@ -110,7 +111,7 @@ impl Dataset {
         };
 
         Ok(Dataset {
-            name, path, created_at, time
+            name, path, created_at, time, id
         })
     }
 
@@ -166,7 +167,7 @@ impl Dataset {
     fn atmospheroid_at_aligned(&self, aligned: &AlignedPoint, cache: &mut Cache) -> Result<Atmospheroid, String> {
         // check cache
         {
-            match cache.get_mut(&aligned.key()) {
+            match cache.get_mut(&aligned.key(self.id)) {
                 Some(atmo) => {
                     return Ok(atmo.clone())
                 },
@@ -213,7 +214,7 @@ impl Dataset {
                     }
 
                     cache.insert(
-                        AlignedPoint::cache_key(aligned.level, line.latitude, line.longitude),
+                        AlignedPoint::cache_key(aligned.level, line.latitude, line.longitude, self.id),
                         Atmospheroid {
                             velocity: Velocity {
                                 east: line.u,

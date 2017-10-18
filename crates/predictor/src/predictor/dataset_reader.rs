@@ -34,13 +34,18 @@ impl UninitializedDataSetReader {
 
                 let folders = result_or_return_why!(fs::read_dir(self.dataset_directory.as_str()), "Could not read dir");
 
+                let mut id : u32 = 1;
+
                 for entry in folders {
                     let path = result_or_return_why!(entry, "Could not read entry").path();
 
                     let path_as_str = some_or_return_why!(path.to_str(), "Could not read path");
 
-                    let reader = match Dataset::new(path_as_str.to_string()) {
-                        Ok(reader) => reader,
+                    let reader = match Dataset::new(path_as_str.to_string(), id) {
+                        Ok(reader) => {
+                            id += 1;
+                            reader
+                        },
                         Err(_) => {
                             continue;
                         }
