@@ -63,6 +63,12 @@ impl DataSetReader {
         Ok(atmospheroid.velocity)
     }
 
+    pub fn temperature_at(&mut self, point: &Point) -> Result<Temperature, String> {
+        let atmospheroid = self.atmospheroid_at(point)?;
+
+        Ok(atmospheroid.temperature)
+    }
+
     pub fn atmospheroid_at(&mut self, point: &Point) -> Result<Atmospheroid, String> {
         let readers = &self.datasets;
 
@@ -142,6 +148,9 @@ impl WrappedDataSetReader {
         get_reader_then!(self.velocity_at point)
     }
 
+    pub fn temperature_at(&mut self, point: &Point) -> Result<Temperature, String> {
+        get_reader_then!(self.temperature_at point)
+    }
 
     pub fn get_datasets(&mut self) -> Result<Vec<String>, String> {
         get_reader_then!(self.get_datasets)
@@ -191,6 +200,12 @@ lazy_static! {
 
 pub fn velocity_at(point: &Point) -> Result<Velocity, String> {
     let result = result_or_return_why!(READER.lock(), "Could not establish lock on reader").velocity_at(&point);
+
+    result
+}
+
+pub fn temperature_at(point: &Point) -> Result<Temperature, String> {
+    let result = result_or_return_why!(READER.lock(), "Could not establish lock on reader").temperature_at(&point);
 
     result
 }
