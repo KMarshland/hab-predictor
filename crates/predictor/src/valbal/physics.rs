@@ -1,14 +1,14 @@
 use valbal::state::*;
 
 
-pub fn calculate_ascent_rate(state : ValBalState) -> f32 {
+pub fn calculate_ascent_rate(state : &ValBalState) -> f32 {
     let lift = get_lift(state);
 
     // model drag
     0.0
 }
 
-fn get_lift(state : ValBalState) -> f32 {
+fn get_lift(state : &ValBalState) -> f32 {
 
     lift_from_ballast(state.ballast_time, state.total_ballast_time, state.ballast_mass_rate) +
         lift_from_vent(state.vent_time, state.position.altitude, state.flight_time) +

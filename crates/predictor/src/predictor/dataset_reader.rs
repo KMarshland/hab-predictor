@@ -186,6 +186,10 @@ pub fn velocity_at(point: &Point) -> Result<Velocity, String> {
     result
 }
 
+pub fn temperature_at(point: &Point) -> Result<f32, String> {
+    Ok(0.0)
+}
+
 pub fn get_datasets() -> Result<Vec<String>, String> {
     let result = result_or_return_why!(READER.lock(), "Could not establish lock on reader").get_datasets();
 

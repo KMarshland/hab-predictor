@@ -1,5 +1,5 @@
 use predictor::point::*;
-use predictor::dataset_reader::velocity_at;
+use predictor::dataset_reader::{velocity_at, temperature_at};
 use chrono::Duration;
 use serde_json;
 
@@ -53,7 +53,7 @@ struct FloatPredictionParams {
 /*
  * Only those parameters necessary to run a valbal prediction
  */
-struct ValBalPredictionParams {
+struct ValBalPredictionParams<Controller : ValBalController> {
     launch: Point,
     duration: Duration,
 
@@ -120,7 +120,8 @@ pub fn predict(params : PredictorParams) -> Result<Prediction, String> {
         },
 
         PredictionProfile::ValBal => {
-            valbal_predict(FloatPredictionParams {
+            // TODO: make this use valbal prediction
+            float_predict(FloatPredictionParams {
                 launch: params.launch,
 
                 duration: params.duration
@@ -195,10 +196,22 @@ fn float_predict(params : FloatPredictionParams) -> Result<Prediction, String> {
     }))
 }
 
-fn valbal_predict(params : ValBalPredictionParams) -> Result<Prediction, String> {
+fn valbal_predict<Controller : ValBalController>(params : ValBalPredictionParams<Controller>) -> Result<Prediction, String> {
 
-    let state = ValBalState {
-        position: params.launch
+    let mut state = ValBalState {
+        position: params.launch,
+
+        outside_temperature: 0.0,
+        temperature: 0.0,
+
+        ballast_mass_rate: 0.0,
+
+        total_ballast_time: 0.0,
+        total_vent_time: 0.0,
+        ballast_time: 0.0,
+        vent_time: 0.0,
+
+        flight_time: 0.0
     };
 
     let mut positions : Vec<Point> = vec![];
@@ -206,9 +219,11 @@ fn valbal_predict(params : ValBalPredictionParams) -> Result<Prediction, String>
     let launch_time = state.position.clone().time;
     let end_time = launch_time + params.duration;
 
+    let mut controller = params.controller;
+
     while state.position.time < end_time {
 
-        let ascent_rate = calculate_ascent_rate(state);
+        let ascent_rate = calculate_ascent_rate(&state);
 
         let velocity = result_or_return!(velocity_at(&state.position)) + &Velocity {
             north: 0.0,
@@ -218,10 +233,12 @@ fn valbal_predict(params : ValBalPredictionParams) -> Result<Prediction, String>
 
         state.position = state.position.add_with_duration(&velocity, params.simulation_interval);
 
-        state.outside_temperature = temperature_at(state.position);
+        state.outside_temperature = result_or_return!(temperature_at(&state.position));
         state.temperature = calculate_temperature(state.temperature, state.outside_temperature);
 
-        state = params.controller.simulate_step(state, params.simulation_interval);
+        state = controller.simulate_step(state, params.simulation_interval);
+
+        positions.push(state.position.clone());
     }
 
     Ok(Prediction::ValBal(FloatPrediction {
