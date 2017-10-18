@@ -22,6 +22,7 @@ pub mod macros;
 
 pub mod predictor;
 pub mod navigation;
+pub mod valbal;
 
 macro_rules! check_error {
     ($result:expr) => {

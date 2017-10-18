@@ -3,6 +3,10 @@ use predictor::dataset_reader::velocity_at;
 use chrono::Duration;
 use serde_json;
 
+use valbal::state::*;
+use valbal::physics::*;
+use valbal::controller::*;
+
 pub enum PredictionProfile {
     Standard,
     Float,
@@ -39,13 +43,22 @@ struct StandardPredictorParams {
 }
 
 /*
- * Only those parameters necessary to run a float/valbal prediction
+ * Only those parameters necessary to run a float prediction
  */
 struct FloatPredictionParams {
     launch: Point,
-
-    // valbal
     duration: Duration
+}
+
+/*
+ * Only those parameters necessary to run a valbal prediction
+ */
+struct ValBalPredictionParams {
+    launch: Point,
+    duration: Duration,
+
+    simulation_interval: f32, // seconds at a time to simulate valbal
+    controller: Controller
 }
 
 /*
@@ -182,18 +195,33 @@ fn float_predict(params : FloatPredictionParams) -> Result<Prediction, String> {
     }))
 }
 
-fn valbal_predict(params : FloatPredictionParams) -> Result<Prediction, String> {
-    let mut current : Point = params.launch;
+fn valbal_predict(params : ValBalPredictionParams) -> Result<Prediction, String> {
+
+    let state = ValBalState {
+        position: params.launch
+    };
+
     let mut positions : Vec<Point> = vec![];
 
-    let launch_time = current.clone().time;
+    let launch_time = state.position.clone().time;
     let end_time = launch_time + params.duration;
 
-    while current.time < end_time {
-        let velocity = result_or_return!(velocity_at(&current));
+    while state.position.time < end_time {
 
-        current = current + &velocity;
-        positions.push(current.clone());
+        let ascent_rate = calculate_ascent_rate(state);
+
+        let velocity = result_or_return!(velocity_at(&state.position)) + &Velocity {
+            north: 0.0,
+            east: 0.0,
+            vertical: ascent_rate
+        };
+
+        state.position = state.position.add_with_duration(&velocity, params.simulation_interval);
+
+        state.outside_temperature = temperature_at(state.position);
+        state.temperature = calculate_temperature(state.temperature, state.outside_temperature);
+
+        state = params.controller.simulate_step(state, params.simulation_interval);
     }
 
     Ok(Prediction::ValBal(FloatPrediction {

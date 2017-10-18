@@ -262,29 +262,33 @@ impl Point {
 
         return lon
     }
+
+    pub fn add_with_duration(self, velocity: &Velocity, integral_duration : f32) -> Point {
+        Point {
+            latitude: {
+                self.latitude + (velocity.north*integral_duration / EARTH_RADIUS) * (180.0 / f32::consts::PI)
+            },
+            longitude: {
+                bound(
+                    self.longitude + (velocity.east*integral_duration / EARTH_RADIUS) *
+                        (180.0 / f32::consts::PI) / f32::cos(self.latitude * f32::consts::PI/180.0)
+                )
+            },
+            altitude: {
+                self.altitude + velocity.vertical * integral_duration
+            },
+            time: {
+                self.time + Duration::seconds(integral_duration as i64)
+            }
+        }
+    }
 }
 
 impl<'a> Add<&'a Velocity> for Point {
     type Output = Point;
 
     fn add(self, velocity: &'a Velocity) -> Point {
-        Point {
-            latitude: {
-                self.latitude + (velocity.north*INTEGRAL_DURATION / EARTH_RADIUS) * (180.0 / f32::consts::PI)
-            },
-            longitude: {
-                bound(
-                    self.longitude + (velocity.east*INTEGRAL_DURATION / EARTH_RADIUS) *
-                        (180.0 / f32::consts::PI) / f32::cos(self.latitude * f32::consts::PI/180.0)
-                )
-            },
-            altitude: {
-                self.altitude + velocity.vertical * INTEGRAL_DURATION
-            },
-            time: {
-                self.time + Duration::seconds(INTEGRAL_DURATION as i64)
-            }
-        }
+        self.add_with_duration(velocity, INTEGRAL_DURATION)
     }
 }
 
