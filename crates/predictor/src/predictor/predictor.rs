@@ -223,7 +223,7 @@ fn valbal_predict<Controller : ValBalController>(params : ValBalPredictionParams
 
     while state.position.time < end_time {
 
-        let ascent_rate = calculate_ascent_rate(&state);
+        let ascent_rate = calculate_ascent_rate(&state, params.simulation_interval);
 
         let velocity = result_or_return!(velocity_at(&state.position)) + &Velocity {
             north: 0.0,
@@ -234,7 +234,7 @@ fn valbal_predict<Controller : ValBalController>(params : ValBalPredictionParams
         state.position = state.position.add_with_duration(&velocity, params.simulation_interval);
 
         state.outside_temperature = result_or_return!(temperature_at(&state.position));
-        state.temperature = calculate_temperature(state.temperature, state.outside_temperature);
+        state.temperature = calculate_temperature(state.temperature, state.outside_temperature, params.simulation_interval);
 
         state = controller.simulate_step(state, params.simulation_interval);
 
