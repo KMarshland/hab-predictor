@@ -10,6 +10,13 @@ pub struct ControllerActionSet {
 pub trait ValBalController {
 
     /*
+     * Runs any required initialization
+     */
+    fn init(&mut self) {
+
+    }
+
+    /*
      * Simulates the controller for `seconds` seconds
      * Returns the actions: how long it vented and how long it ballasted
      * The controller may mutate itself to track any parameters it wishes

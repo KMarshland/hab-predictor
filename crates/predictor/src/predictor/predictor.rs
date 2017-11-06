@@ -221,6 +221,7 @@ fn valbal_predict<Controller : ValBalController>(params : ValBalPredictionParams
     let end_time = launch_time + params.duration;
 
     let mut controller = params.controller;
+    controller.init();
 
     while state.position.time < end_time {
 

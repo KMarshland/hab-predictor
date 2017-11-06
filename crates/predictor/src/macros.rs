@@ -45,6 +45,34 @@ macro_rules! unsafe_dereference {
     };
 }
 
+macro_rules! max {
+    ($x:expr) => ( $x );
+    ($x:expr, $($xs:expr),+) => {
+        {
+            let right = max!( $($xs),+ );
+            if $x > right {
+                $x
+            } else {
+                right
+            }
+        }
+    };
+}
+
+macro_rules! min {
+    ($x:expr) => ( $x );
+    ($x:expr, $($xs:expr),+) => {
+        {
+            let right = min!( $($xs),+ );
+            if $x < right {
+                $x
+            } else {
+                right
+            }
+        }
+    };
+}
+
 /*
  * let a = result_or_return_why!(b, "Because b")
  *
