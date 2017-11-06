@@ -25,8 +25,11 @@ pub struct PIDController {
     ballast_arm_altitude: f32,
     incentive_threshold: f32,
 
-    ballast_altitude_default: f32,
-    ballast_altitude_last_filler: f32
+    ballast_altitude_last_default: f32,
+    ballast_altitude_last_filler: f32,
+
+    valve_duration: f32, // seconds
+    ballast_duration: f32 // seconds
 }
 
 impl ValBalController for PIDController {
@@ -56,11 +59,38 @@ impl ValBalController for PIDController {
 
 impl PIDController {
 
-//    fn create_default() -> Self {
-//        PIDController {
-//
-//        }
-//    }
+    /*
+     * Creates a PID Controller with default parameters
+     * Note that these can be updated partway through a simulation, eg by simulating RB
+     * Values taken from https://github.com/stanford-ssi/balloons-VALBAL/blob/a1d78e595a849edeffffec9c8a2328c5565d00a3/src/Config.h
+     */
+    fn create_default() -> Self {
+        PIDController {
+            valve_setpoint: 14500.0,
+            valve_velocity_constant: 1.0,
+            valve_altitude_difference_constant: 1.0 / 1500.0,
+            valve_last_action_constant : 1.0 / 1500.0,
+
+            ballast_setpoint : 13500.0,
+            ballast_velocity_constant : 1.0,
+            ballast_altitude_difference_constant : 1.0 / 1500.0,
+            ballast_last_action_constant : 1.0 / 1500.0,
+
+            altitude_since_last_vent: 0.0,
+            altitude_since_last_ballast_dropped: -90000.0,
+
+            first_ballast_dropped: false,
+            re_arm_constant: 0.0,
+            ballast_arm_altitude: 13250.0,
+            incentive_threshold: 0.75,
+
+            ballast_altitude_last_default: -90000.0,
+            ballast_altitude_last_filler: 14000.0,
+
+            valve_duration: 20.0,
+            ballast_duration: 15.0
+        }
+    }
 
     fn update_re_arm_constant(&mut self) {
         self.re_arm_constant = self.incentive_threshold / (self.ballast_altitude_difference_constant + self.ballast_last_action_constant);
@@ -73,7 +103,7 @@ impl PIDController {
         let mut altitude_since_last_drop_corrected = self.altitude_since_last_ballast_dropped;
 
         if !self.first_ballast_dropped && state.position.altitude >= self.ballast_arm_altitude &&
-            self.altitude_since_last_ballast_dropped == self.ballast_altitude_default
+            self.altitude_since_last_ballast_dropped == self.ballast_altitude_last_default
             {
                 altitude_since_last_drop_corrected = self.ballast_altitude_last_filler;
                 self.first_ballast_dropped = true;
