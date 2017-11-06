@@ -9,6 +9,7 @@ use valbal::controller::*;
  * Anything related to software (eg controller state) should live on the controller
  */
 pub struct ValBalState {
+    pub ascent_rate : f32, // m/s
     pub position : Point,
 
     pub outside_temperature : f32, // degrees C
@@ -33,6 +34,7 @@ impl<'a> Add<&'a ControllerActionSet> for ValBalState {
 
     fn add(self, actions: &'a ControllerActionSet) -> ValBalState {
         ValBalState {
+            ascent_rate: self.ascent_rate,
             position: self.position,
 
             outside_temperature: self.outside_temperature,

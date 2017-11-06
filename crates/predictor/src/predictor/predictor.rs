@@ -199,6 +199,7 @@ fn float_predict(params : FloatPredictionParams) -> Result<Prediction, String> {
 fn valbal_predict<Controller : ValBalController>(params : ValBalPredictionParams<Controller>) -> Result<Prediction, String> {
 
     let mut state = ValBalState {
+        ascent_rate: 0.0,
         position: params.launch,
 
         outside_temperature: 0.0,
