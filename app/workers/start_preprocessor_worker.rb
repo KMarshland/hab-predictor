@@ -105,28 +105,45 @@ class StartPreprocessorWorker
     threads = [WORKER_POOL_SIZE, datasets.size].min
     workers = []
 
-    threads.times do
-      workers << Thread.new do
-        begin
-          while (file_url = datasets.pop(true)).present?
-            start_preprocessor file_url
+    if threads == 1
+      while (file_url = datasets.pop(true)).present?
+        start_preprocessor file_url
 
-            number_completed += 1
+        number_completed += 1
 
-            if number_completed % (total / 10).to_i == 0
-              percentage = (100*number_completed/total.to_f)
-              elapsed = (DateTime.now - start).to_f * 1.day
-              remaining = elapsed / (percentage / 100)  - elapsed
+        if number_completed % (total / 10).to_i == 0
+          percentage = (100*number_completed/total.to_f)
+          elapsed = (DateTime.now - start).to_f * 1.day
+          remaining = elapsed / (percentage / 100)  - elapsed
 
-              puts "#{percentage.round(1).to_s.rjust(5)}% complete (#{elapsed.round(2)}s elapsed, #{remaining.round(2)}s remaining)"
-            end
-          end
-        rescue ThreadError
+          puts "#{percentage.round(1).to_s.rjust(5)}% complete (#{elapsed.round(2)}s elapsed, #{remaining.round(2)}s remaining)"
         end
       end
+    else
+      threads.times do
+        workers << Thread.new do
+          begin
+            while (file_url = datasets.pop(true)).present?
+              start_preprocessor file_url
+
+              number_completed += 1
+
+              if number_completed % (total / 10).to_i == 0
+                percentage = (100*number_completed/total.to_f)
+                elapsed = (DateTime.now - start).to_f * 1.day
+                remaining = elapsed / (percentage / 100)  - elapsed
+
+                puts "#{percentage.round(1).to_s.rjust(5)}% complete (#{elapsed.round(2)}s elapsed, #{remaining.round(2)}s remaining)"
+              end
+            end
+          rescue ThreadError
+          end
+        end
+      end
+
+      workers.map(&:join)
     end
 
-    workers.map(&:join)
   end
 
   def has_processed?(url)
