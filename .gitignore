@@ -52,3 +52,5 @@ preprocessor/data/*
 
 # Ignore application configuration
 /config/application.yml
+
+lib/downloader/standalone.rb

@@ -41,7 +41,7 @@ class PreprocessorWorker
   end
 
   def read_to_format(path:, dir:, level:)
-    # each buffer tuple is an array [level, lat, lon, u, v]
+    # each buffer tuple is an array [level, lat, lon, u, v, t]
     incomplete_buffer = {}
     complete_buffer = []
 
